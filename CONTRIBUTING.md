@@ -10,6 +10,10 @@ The project builds with `build.sh`, without an Xcode project or external package
 dependencies. `Package.swift` supports editor indexing; it does not assemble or
 sign the app bundle.
 
+`build.sh` builds for the Mac it runs on, so an Intel Mac produces an `x86_64`
+bundle. Set `VORSSAINT_ARCH=arm64` or `VORSSAINT_ARCH=x86_64` to choose the
+architecture yourself. Official releases and support remain Apple Silicon only.
+
 ```sh
 git clone https://github.com/vorssaint/vorssaint-utils.git
 cd vorssaint-utils

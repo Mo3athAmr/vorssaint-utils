@@ -1491,6 +1491,26 @@ enum RepositoryFeatureTests {
                    "\(script) asks codesign to sign a throwaway copy of /bin/echo with the stable identity")
         }
 
+        // MARK: Every binary build.sh produces targets one architecture, chosen by the host
+        // A hardcoded triple builds the whole bundle for one CPU and the helper's
+        // and tests' self-checks then cannot run on the other. Each compile must
+        // take the single TARGET, which is derived from ARCH, so no executable,
+        // helper or library can end up in a different architecture from the rest.
+        // The detection asks the hardware: uname -m alone reports a Rosetta shell
+        // on Apple Silicon as x86_64.
+        let compileCommands = buildScriptCode.filter {
+            $0.trimmingCharacters(in: .whitespaces).hasPrefix("swiftc ")
+        }
+        let compileTargets = buildScriptCode.filter { $0.contains("-target \"$TARGET\"") }
+        suite.expect(!compileCommands.isEmpty && compileCommands.count == compileTargets.count,
+               "every swiftc invocation in build.sh passes the shared -target \"$TARGET\"")
+        suite.expect(buildScriptCode.filter { $0.contains("-apple-macosx") }
+                        == [#"TARGET="$ARCH-apple-macosx14.0""#],
+               "the target triple is spelled once and takes its architecture from ARCH")
+        suite.expect(buildScriptCode.contains { $0.contains("hw.optional.arm64") }
+                && buildScriptCode.contains { $0.contains("VORSSAINT_ARCH") },
+               "the architecture comes from the hardware, with an explicit override")
+
         // MARK: Uninstallation paths stay aligned across SelfUninstall and Tools/uninstall.sh
         let selfUninstallSource = repository.source(
             at: "Sources/Vorssaint/Services/SelfUninstall.swift")

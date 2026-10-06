@@ -5,14 +5,18 @@ under GPL-3.0-or-later unless stated otherwise.
 
 ## Getting started
 
-You need macOS 14 or newer, Apple Silicon and the Xcode Command Line Tools.
+You need macOS 14 or newer and the Xcode Command Line Tools. Vorssaint is released
+and supported on Apple Silicon only; a local source build can also target Intel.
 The project builds with `build.sh`, without an Xcode project or external package
 dependencies. `Package.swift` supports editor indexing; it does not assemble or
 sign the app bundle.
 
 `build.sh` builds for the Mac it runs on, so an Intel Mac produces an `x86_64`
 bundle. Set `VORSSAINT_ARCH=arm64` or `VORSSAINT_ARCH=x86_64` to choose the
-architecture yourself. Official releases and support remain Apple Silicon only.
+architecture yourself. That only makes the source build and run: Intel-specific
+hardware features (temperature and power sensors, fans, external display
+brightness) are not yet validated, and official releases and support remain
+Apple Silicon only.
 
 ```sh
 git clone https://github.com/vorssaint/vorssaint-utils.git

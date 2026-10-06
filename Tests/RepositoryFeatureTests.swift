@@ -117,6 +117,135 @@ enum RepositoryFeatureTests {
         }
     }
 
+    // MARK: Every binary build.sh produces targets one architecture, chosen by the host
+    // A hardcoded architecture builds the whole bundle for one CPU, and the
+    // helper's and tests' self-checks then cannot run on the other. The script
+    // must resolve ARCH once, from an explicit override or else from the host
+    // detection, accept only the architectures Phase 1 supports, and give every
+    // compile the one TARGET built from it.
+    //
+    // The commands are read structurally (comments dropped, continued lines
+    // joined), so formatting changes do not matter, and the real architecture
+    // block is then run under shimmed sysctl and uname, so what is protected is
+    // the behavior on each kind of host and not the presence of a word.
+    private static func architectureBuildContract(_ suite: TestSuite, script: String) {
+        var commands: [String] = []
+        var continued = ""
+        for raw in script.components(separatedBy: "\n") {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if continued.isEmpty && line.hasPrefix("#") { continue }
+            if line.hasSuffix("\\") {
+                continued += String(line.dropLast()) + " "
+                continue
+            }
+            commands.append(continued + line)
+            continued = ""
+        }
+        commands.removeAll { $0.isEmpty }
+        func matches(_ text: String, _ pattern: String) -> Bool {
+            text.range(of: pattern, options: .regularExpression) != nil
+        }
+
+        // Structure: one ARCH, resolved from the override or else the detection.
+        let archAssignments = commands.filter { matches($0, #"(^|[\s;&|])ARCH="#) }
+        suite.expect(archAssignments.count == 1
+                && matches(archAssignments[0],
+                           #"^ARCH="?\$\{VORSSAINT_ARCH:-\$\(\s*host_architecture\s*\)\}"?$"#),
+               "ARCH is assigned once, from VORSSAINT_ARCH or else from host_architecture")
+        suite.expect(commands.contains { matches($0, #"^host_architecture\(\)"#) },
+               "the host detection function is defined")
+
+        // Structure: validation sits between ARCH and TARGET and admits only arm64 and x86_64.
+        let archIndex = commands.firstIndex { matches($0, #"^ARCH="#) }
+        let targetIndex = commands.firstIndex { matches($0, #"^TARGET="#) }
+        let caseIndex = commands.firstIndex { matches($0, #"^case\s+"?\$\{?ARCH\}?"?\s+in\b"#) }
+        suite.expect(archIndex != nil && caseIndex != nil && targetIndex != nil
+                && archIndex! < caseIndex! && caseIndex! < targetIndex!,
+               "the resolved architecture is validated before the target is built from it")
+
+        // Structure: the target triple is built from ARCH, in exactly one place.
+        let targetAssignments = commands.filter { matches($0, #"(^|[\s;&|])TARGET="#) }
+        suite.expect(targetAssignments.count == 1
+                && matches(targetAssignments[0],
+                           #"^TARGET="?\$\{?ARCH\}?-apple-macosx[0-9]+(\.[0-9]+)*"?$"#),
+               "TARGET is assigned once, as the resolved architecture plus the deployment triple")
+        suite.expect(commands.filter { $0.contains("-apple-macosx") }.count == 1,
+               "no other command spells a target triple of its own")
+
+        // Structure: every native compile takes the shared target, and the four
+        // known artifacts (tests, app, fan helper, Now Playing library) are among them.
+        let compiles = commands.filter { matches($0, #"\bswiftc\b"#) }
+        let untargeted = compiles.filter { !matches($0, #"-target\s+"?\$\{?TARGET\}?"?(\s|$)"#) }
+        suite.expect(!compiles.isEmpty && untargeted.isEmpty,
+               "every swiftc invocation passes the shared target: \(untargeted)")
+        for (artifact, output) in [("tests", "build/metrics-tests"),
+                                   ("app", "build/$EXECUTABLE"),
+                                   ("fan helper", "build/$FAN_HELPER_ID"),
+                                   ("Now Playing library", "build/$NOW_PLAYING_ADAPTER")] {
+            suite.expect(compiles.filter { $0.contains("-o \"\(output)\"") || $0.contains("-o \(output)") }.count == 1,
+                   "the \(artifact) is built by exactly one swiftc invocation")
+        }
+
+        // Behavior: run the real detection, validation and target lines.
+        let lines = script.components(separatedBy: "\n")
+        guard let first = lines.firstIndex(where: { matches($0, #"^host_architecture\(\)"#) }),
+              let last = lines.firstIndex(where: { matches($0, #"^TARGET="#) }), first < last else {
+            suite.expect(false, "the architecture block can be read back out of build.sh")
+            return
+        }
+        let block = lines[first...last].joined(separator: "\n")
+        let shims = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vorss-arch-shims-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: shims) }
+        func shim(_ name: String, _ body: String) -> Bool {
+            let url = shims.appendingPathComponent(name)
+            guard (try? "#!/bin/sh\n\(body)\n".write(to: url, atomically: true, encoding: .utf8)) != nil else { return false }
+            return (try? FileManager.default.setAttributes([.posixPermissions: 0o755],
+                                                           ofItemAtPath: url.path)) != nil
+        }
+        func resolve(sysctl: String, uname: String, override: String? = nil) -> (status: Int32, output: String) {
+            let wrote = (try? FileManager.default.createDirectory(at: shims, withIntermediateDirectories: true)) != nil
+                && shim("sysctl", sysctl) && shim("uname", "[ \"$1\" = \"-m\" ] && echo '\(uname)'")
+            guard wrote else { return (-1, "shims could not be written") }
+            var environment = ["PATH": "\(shims.path):/usr/bin:/bin:/usr/sbin:/sbin"]
+            if let override { environment["VORSSAINT_ARCH"] = override }
+            let result = BoundedProcessRunner.run(
+                "/bin/zsh",
+                ["-f", "-c", "set -euo pipefail\n\(block)\nprint -r -- \"RESOLVED $ARCH $TARGET\""],
+                timeout: 10, maxOutputBytes: 4_096, environment: environment)
+            return (result.timedOut ? -1 : result.status,
+                    String(decoding: result.output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        let appleSilicon = "[ \"$2\" = hw.optional.arm64 ] && echo 1 && exit 0; exit 1"
+        let intel = "echo \"sysctl: unknown oid 'hw.optional.arm64'\" >&2; exit 1"
+        let arm = "RESOLVED arm64 arm64-apple-macosx14.0"
+        let x86 = "RESOLVED x86_64 x86_64-apple-macosx14.0"
+
+        let nativeAppleSilicon = resolve(sysctl: appleSilicon, uname: "arm64")
+        suite.expect(nativeAppleSilicon.status == 0 && nativeAppleSilicon.output == arm,
+               "a native Apple Silicon host builds arm64: \(nativeAppleSilicon)")
+        let rosetta = resolve(sysctl: appleSilicon, uname: "x86_64")
+        suite.expect(rosetta.status == 0 && rosetta.output == arm,
+               "a Rosetta shell on Apple Silicon still builds arm64: \(rosetta)")
+        let nativeIntel = resolve(sysctl: intel, uname: "x86_64")
+        suite.expect(nativeIntel.status == 0 && nativeIntel.output == x86,
+               "an Intel host, where the arm64 sysctl does not exist, builds x86_64 under set -e: \(nativeIntel)")
+        let overrideOnIntel = resolve(sysctl: intel, uname: "x86_64", override: "arm64")
+        suite.expect(overrideOnIntel.status == 0 && overrideOnIntel.output == arm,
+               "VORSSAINT_ARCH=arm64 decides the target over an Intel host: \(overrideOnIntel)")
+        let overrideOnAppleSilicon = resolve(sysctl: appleSilicon, uname: "arm64", override: "x86_64")
+        suite.expect(overrideOnAppleSilicon.status == 0 && overrideOnAppleSilicon.output == x86,
+               "VORSSAINT_ARCH=x86_64 decides the target over an Apple Silicon host: \(overrideOnAppleSilicon)")
+        let emptyOverride = resolve(sysctl: appleSilicon, uname: "x86_64", override: "")
+        suite.expect(emptyOverride.status == 0 && emptyOverride.output == arm,
+               "an empty VORSSAINT_ARCH falls back to the host detection: \(emptyOverride)")
+        for unsupported in ["i386", "amd64", "aarch64", "arm64e", "universal", "ppc", "ARM64", "x86_64 ", "x86"] {
+            let rejected = resolve(sysctl: intel, uname: "x86_64", override: unsupported)
+            suite.expect(rejected.status != 0 && !rejected.output.contains("RESOLVED"),
+                   "VORSSAINT_ARCH='\(unsupported)' is rejected before a target is built: \(rejected)")
+        }
+    }
+
     static func run(_ suite: TestSuite) {
         func expectEqual(_ actual: String, _ expected: String, _ label: String,
                          file: StaticString = #filePath, line: UInt = #line) {
@@ -1491,25 +1620,7 @@ enum RepositoryFeatureTests {
                    "\(script) asks codesign to sign a throwaway copy of /bin/echo with the stable identity")
         }
 
-        // MARK: Every binary build.sh produces targets one architecture, chosen by the host
-        // A hardcoded triple builds the whole bundle for one CPU and the helper's
-        // and tests' self-checks then cannot run on the other. Each compile must
-        // take the single TARGET, which is derived from ARCH, so no executable,
-        // helper or library can end up in a different architecture from the rest.
-        // The detection asks the hardware: uname -m alone reports a Rosetta shell
-        // on Apple Silicon as x86_64.
-        let compileCommands = buildScriptCode.filter {
-            $0.trimmingCharacters(in: .whitespaces).hasPrefix("swiftc ")
-        }
-        let compileTargets = buildScriptCode.filter { $0.contains("-target \"$TARGET\"") }
-        suite.expect(!compileCommands.isEmpty && compileCommands.count == compileTargets.count,
-               "every swiftc invocation in build.sh passes the shared -target \"$TARGET\"")
-        suite.expect(buildScriptCode.filter { $0.contains("-apple-macosx") }
-                        == [#"TARGET="$ARCH-apple-macosx14.0""#],
-               "the target triple is spelled once and takes its architecture from ARCH")
-        suite.expect(buildScriptCode.contains { $0.contains("hw.optional.arm64") }
-                && buildScriptCode.contains { $0.contains("VORSSAINT_ARCH") },
-               "the architecture comes from the hardware, with an explicit override")
+        architectureBuildContract(suite, script: buildScript)
 
         // MARK: Uninstallation paths stay aligned across SelfUninstall and Tools/uninstall.sh
         let selfUninstallSource = repository.source(

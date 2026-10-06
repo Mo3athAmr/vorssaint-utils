@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Vorssaint
 
+import Darwin
 import Foundation
 
 enum FanControlHardwareError: Error {
@@ -43,14 +44,16 @@ final class FanControlHardware {
     private var didDiscoverForceTestKey = false
     private var activeTargets: [Double] = []
     private var temperatureKeys: TemperatureKeys?
-    private let temperaturePlatform = TemperatureSensorSelector.currentPlatform()
+    private let temperaturePlatform: CPUTemperaturePlatform
 
-    init?() {
+    init?(temperaturePlatform: CPUTemperaturePlatform = TemperatureSensorSelector.currentPlatform()) {
         guard let client = SMCClient() else { return nil }
         self.client = client
+        self.temperaturePlatform = temperaturePlatform
     }
 
     func readOnlySnapshot() throws -> FanControlSnapshot {
+        try requireValidatedControl()
         let fans = try discoverControlledFans()
         let snapshot = FanControlSnapshot(fans: try readings(for: fans), isCooling: false,
                                           endsAt: nil, stopReason: nil,
@@ -87,6 +90,7 @@ final class FanControlHardware {
     }
 
     func startCooling(level: Int) throws -> [FanControlFanReading] {
+        try requireValidatedControl()
         let fans = try discoverControlledFans()
         guard try fans.allSatisfy({ try FanControlPolicy.isAutomaticMode(modeValue($0.mode)) }) else {
             throw FanControlHardwareError.alreadyControlled
@@ -157,6 +161,7 @@ final class FanControlHardware {
     }
 
     func updateCooling(level: Int) throws -> [FanControlFanReading] {
+        try requireValidatedControl()
         let fans = try discoverControlledFans()
         guard FanControlPolicy.validCoolingLevel(level) else {
             throw FanControlHardwareError.operationFailed
@@ -182,6 +187,7 @@ final class FanControlHardware {
     }
 
     func validateAutomaticControl() throws {
+        try requireValidatedControl()
         let fans = try discoverControlledFans()
         guard try fans.allSatisfy({ try FanControlPolicy.isAutomaticMode(modeValue($0.mode)) }) else {
             throw FanControlHardwareError.alreadyControlled
@@ -239,9 +245,26 @@ final class FanControlHardware {
         let cpuReadings = temperatureReadings(keys.cpu)
         return FanControlPolicy.aggregatedTemperatures(
             cpuReadings: cpuReadings,
-            gpuReadings: temperatureReadings(keys.gpu).map(\.value),
+            gpuReadings: FanControlPolicy.gpuThermalInputs(
+                readings: temperatureReadings(keys.gpu), platform: temperaturePlatform),
             platform: temperaturePlatform
         )
+    }
+
+    private func requireValidatedControl() throws {
+        var hostAllowsControl = true
+        #if arch(x86_64)
+        // An x86 process may be Rosetta on Apple Silicon. Require positive
+        // physical ARM capability there; absent/failed sysctls fail closed.
+        var arm64: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        hostAllowsControl = sysctlbyname("hw.optional.arm64", &arm64, &size, nil, 0) == 0 && arm64 == 1
+        #endif
+        guard FanControlPolicy.controlIsValidated(platform: temperaturePlatform,
+                                                  hostAllowsControl: hostAllowsControl) else {
+            throw FanControlHardwareError.unsupported
+        }
+        // Restoration stays available to hand an older session back to firmware.
     }
 
     // MARK: - Discovery

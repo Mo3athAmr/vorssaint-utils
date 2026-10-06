@@ -93,6 +93,10 @@ final class FanControlService: ObservableObject {
     }
 
     func authorize() {
+        guard FanControlPolicy.controlIsValidated(platform: TemperatureSensorSelector.currentPlatform()) else {
+            error = .unsupportedHardware
+            return
+        }
         refreshAccessState()
         switch accessState {
         case .requiresApproval:
@@ -134,6 +138,10 @@ final class FanControlService: ObservableObject {
         }
         if configuration.mode == .system {
             returnToSystem()
+            return
+        }
+        guard FanControlPolicy.controlIsValidated(platform: TemperatureSensorSelector.currentPlatform()) else {
+            error = .unsupportedHardware
             return
         }
         guard accessState == .enabled else { authorize(); return }
@@ -340,6 +348,7 @@ final class FanControlService: ObservableObject {
         // Picking System in the card is a return to System too, even when a
         // safety stop had already handed the fans back and left no button.
         guard AppFeature.fanControl.isAvailable,
+              FanControlPolicy.controlIsValidated(platform: TemperatureSensorSelector.currentPlatform()),
               UserDefaults.standard.bool(forKey: DefaultsKey.fanControlResume),
               UserDefaults.standard.string(forKey: DefaultsKey.fanControlMode)
                 != FanControlMode.system.rawValue else { return nil }

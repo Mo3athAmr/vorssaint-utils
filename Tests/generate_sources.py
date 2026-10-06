@@ -286,6 +286,21 @@ def main():
           + declaration("Sources/Vorssaint/Services/SystemMonitor/SystemMonitor.swift",
                         "    private func readCPUUsage(").replace("private func", "func", 1)
           + "}\n}\n")
+    fan_hardware = "Sources/Vorssaint/Services/FanControl/FanControlHardware.swift"
+    write("FanControlHardwareGate.swift", "import Foundation\n"
+          + declaration(fan_hardware, "enum FanControlHardwareError:")
+          + "extension FanControlGateTests {\n"
+          + declaration(fan_hardware, "final class FanControlHardware {")
+            .replace("final class FanControlHardware", "final class Hardware", 1)
+            .replace("FanControlHardware()", "Hardware()")
+          + "}\n")
+    write("GPUDeviceCache.swift", "import Foundation\n"
+          + "extension IntelCompatibilityTests {\nfinal class Monitor: Fixture {\n"
+          + declaration("Sources/Vorssaint/Services/SystemMonitor/SystemMonitor.swift",
+                        "    private func readGPUMetrics(").replace("private func", "func", 1)
+          + declaration("Sources/Vorssaint/Services/SystemMonitor/SystemMonitor.swift",
+                        "    private func synchronizeGPUDevice(").replace("private func", "func", 1)
+          + "}\n}\n")
     uninstall = "Sources/Vorssaint/Services/Uninstall/AppUninstaller.swift"
     bar = "Sources/Vorssaint/Services/CommandBar/CommandBarService.swift"
     write("QuickPaste.swift", "import Foundation\n"

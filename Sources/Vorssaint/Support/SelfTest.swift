@@ -211,29 +211,12 @@ enum SensorDump {
                 || (cpuPlatform == .intel && (name.hasPrefix("TC") || name.hasPrefix("TG")))
                 || name.range(of: "^TB[0-9]T$", options: .regularExpression) != nil
         }
-        let hasCPUCoreSet = TemperatureSensorSelector.hasCPUCoreSet(platform: cpuPlatform)
-        print("component    key   type   °C")
+        print("component          key   type   value unit")
         for key in keys.sorted(by: { $0.name < $1.name }) {
-            guard let value = smc.readValue(key), value > 1, value < 125 else { continue }
-            let component: String
-            if key.name.hasPrefix("TB") {
-                component = "battery"
-            } else if TemperatureSensorSelector.isGPUTemperatureKey(key.name, platform: cpuPlatform) {
-                component = "gpu"
-            } else if cpuPlatform == .intel && key.name == "TCGC" {
-                component = "intel-igpu"
-            } else if cpuPlatform == .intel && key.name.hasPrefix("TG") {
-                component = "gpu-aux"
-            } else if hasCPUCoreSet {
-                component = TemperatureSensorSelector.isCPUCoreKey(key.name, platform: cpuPlatform) ? "cpu-core" : "cpu-aux"
-            } else {
-                component = "cpu"
-            }
-            // Diagnostic output, read by whoever ran the self-test and by
-            // scripts, so it stays on a decimal point wherever it runs.
-            print(String(format: "%-11@  %@  %@  %6.2f",
-                         locale: Locale(identifier: "en_US_POSIX"),
-                         component as NSString, key.name, key.dataType, value))
+            guard let value = smc.readValue(key),
+                  let line = SMCDiagnosticSemantics.line(key: key.name, dataType: key.dataType,
+                                                         value: value, platform: cpuPlatform) else { continue }
+            print(line)
         }
         exit(0)
     }

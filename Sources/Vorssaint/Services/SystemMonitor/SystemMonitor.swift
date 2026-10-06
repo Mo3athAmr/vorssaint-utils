@@ -165,7 +165,7 @@ final class SystemMonitor: ObservableObject {
     private var fanKeys: [SMCClient.Key] = []
     private var tempKeysPrepared = false
     private var fanKeysPrepared = false
-    private var cpuTemperaturePlatform: CPUTemperaturePlatform = .generic
+    private var cpuTemperaturePlatform = TemperatureSensorSelector.currentPlatform()
 
     // Samplers
     private let networkSampler = NetworkSampler()
@@ -187,6 +187,7 @@ final class SystemMonitor: ObservableObject {
     private var lastCPUUsage: Double?
     private var lastCPUUsageReadAt: TimeInterval?
     private var missedCPUUsageSamples = 0
+    private var lastGPUDeviceID: UInt64?
     private var lastGPUUsage: Double?
     private var missedGPUUsageSamples = 0
     private var memoryCache: CachedMemoryReading?
@@ -791,14 +792,19 @@ final class SystemMonitor: ObservableObject {
                 next.peripheralBatteries = self.lastPeripheralBatterySample.devices
             }
 
-            // GPU usage is the priciest normal monitor read. When the panel first
-            // opens, skip the immediate read so the popover animation does not
-            // become a visible one-sample GPU spike. A deferred refresh follows.
+            // Use one device inventory for both GPU attributes. Clear bridges
+            // on an identity change before publishing either cached attribute.
+            let suppressGPUForUI = suppressImmediateGPU || now < suppressGPUReadsUntil
+            let sampleGPUUsage = plan.needGPUUsage && !suppressGPUForUI && take(.gpuUsage)
+            let sampleGPUTemperature = plan.needGPUTemperature && take(.temperature)
+            var gpuMetrics: (id: UInt64?, usage: Double?, temperature: Double?) = (nil, nil, nil)
+            if sampleGPUUsage || sampleGPUTemperature {
+                gpuMetrics = self.readGPUMetrics(devices: Self.readGPUDevices(),
+                    readings: sampleGPUTemperature ? self.temperatureReadings(of: self.gpuKeys) : [])
+            }
             if plan.needGPUUsage {
-                let suppressGPUForUI = suppressImmediateGPU || now < suppressGPUReadsUntil
-                let shouldSampleGPU = !suppressGPUForUI && take(.gpuUsage)
-                if shouldSampleGPU {
-                    if let rawGPU = Self.readGPUUsage() {
+                if sampleGPUUsage {
+                    if let rawGPU = gpuMetrics.usage {
                         self.lastGPUUsage = MetricFormat.stabilizedGPUUsage(previous: self.lastGPUUsage,
                                                                             current: rawGPU)
                         self.missedGPUUsageSamples = 0
@@ -835,9 +841,9 @@ final class SystemMonitor: ObservableObject {
                 next.cpuTemperatureReadAt = self.cpuTemperatureCache?.updatedAt
             }
             if plan.needGPUTemperature {
-                if take(.temperature) {
+                if sampleGPUTemperature {
                     next.gpuTemperature = TemperatureSensorSelector.stabilizedTemperature(
-                        self.gpuTemperature(),
+                        gpuMetrics.temperature,
                         cache: &self.gpuTemperatureCache,
                         now: now,
                         maxAge: temperatureBridge,
@@ -1054,13 +1060,23 @@ final class SystemMonitor: ObservableObject {
                                                                  platform: cpuTemperaturePlatform)
     }
 
-    private func gpuTemperature() -> Double? {
-        guard smc != nil else { return nil }
-        let readings = temperatureReadings(of: gpuKeys)
-        return TemperatureSensorSelector.displayedGPUTemperature(
-            readings: readings,
-            platform: cpuTemperaturePlatform
-        )
+    private func readGPUMetrics(devices: [GPUDeviceReading],
+                                readings: [(key: String, value: Double)])
+        -> (id: UInt64?, usage: Double?, temperature: Double?) {
+        let device = GPUMetricAssociation.selectedDevice(devices, platform: cpuTemperaturePlatform)
+        synchronizeGPUDevice(device?.registryID)
+        return (device?.registryID, device?.utilization,
+                GPUMetricAssociation.temperature(for: device, devices: devices,
+                    readings: readings, platform: cpuTemperaturePlatform))
+    }
+
+    private func synchronizeGPUDevice(_ registryID: UInt64?) {
+        guard registryID != lastGPUDeviceID else { return }
+        lastGPUDeviceID = registryID
+        lastGPUUsage = nil
+        missedGPUUsageSamples = 0
+        gpuTemperatureCache = nil
+        gpuHistory = MetricHistory(capacity: historyCapacity)
     }
 
     private func temperatureReadings(of keys: [SMCClient.Key]) -> [(key: String, value: Double)] {
@@ -1121,34 +1137,67 @@ final class SystemMonitor: ObservableObject {
 
     // MARK: - GPU usage
 
-    /// "Device Utilization %" published by the graphics accelerator
-    /// (AGXAccelerator on Apple Silicon).
-    private static func readGPUUsage() -> Double? {
+    /// Capture identity independently of whether this device publishes usage.
+    private static func readGPUDevices() -> [GPUDeviceReading] {
         var iterator = io_iterator_t()
         guard IOServiceGetMatchingServices(kIOMainPortDefault,
                                            IOServiceMatching("IOAccelerator"),
-                                           &iterator) == kIOReturnSuccess else { return nil }
+                                           &iterator) == kIOReturnSuccess else { return [] }
         defer { IOObjectRelease(iterator) }
-
-        // The advance lives in the `while` condition so the `defer` only
-        // releases. With the advance inside the defer, returning from the loop
-        // ran it: it released the entry it was done with and then took a
-        // reference on the next service that nothing released. Machines with a
-        // second IOAccelerator (Intel dual graphics, an eGPU) leaked one
-        // io_object_t per sampling tick that way.
+        var devices: [GPUDeviceReading] = []
         while case let entry = IOIteratorNext(iterator), entry != 0 {
             defer { IOObjectRelease(entry) }
-            // Fetch ONLY PerformanceStatistics, not the whole (large) property
-            // tree. Copying every property each tick is what made continuous GPU
-            // sampling for the menu bar expensive.
-            guard let ref = IORegistryEntryCreateCFProperty(entry, "PerformanceStatistics" as CFString,
-                                                            kCFAllocatorDefault, 0),
-                  let stats = ref.takeRetainedValue() as? [String: Any],
-                  let utilization = stats["Device Utilization %"] as? Int
-            else { continue }
-            return Double(utilization) / 100.0
+            var registryID: UInt64 = 0
+            guard IORegistryEntryGetRegistryEntryID(entry, &registryID) == kIOReturnSuccess else { continue }
+            var classBuffer = [CChar](repeating: 0, count: 128)
+            guard IOObjectGetClass(entry, &classBuffer) == kIOReturnSuccess else { continue }
+            let className = String(cString: classBuffer)
+            let identity = gpuPCIIdentity(entry)
+            let vendor: GPUDeviceReading.Vendor
+            switch identity.vendorID {
+            case 0x1002: vendor = .amd
+            case 0x8086: vendor = .intel
+            default: vendor = className.hasPrefix("AGX") ? .apple : .other
+            }
+            let ref = IORegistryEntryCreateCFProperty(entry, "PerformanceStatistics" as CFString,
+                                                      kCFAllocatorDefault, 0)
+            let stats = ref?.takeRetainedValue() as? [String: Any]
+            let utilization = (stats?["Device Utilization %"] as? Int).flatMap {
+                (0...100).contains($0) ? Double($0) / 100 : nil
+            }
+            devices.append(GPUDeviceReading(registryID: registryID, vendor: vendor,
+                                            isBuiltIn: identity.isBuiltIn || vendor == .apple,
+                                            utilization: utilization))
         }
-        return nil
+        return devices
+    }
+
+    /// Use the nearest PCI device's vendor and firmware ACPI provenance.
+    /// Reject tunnelled devices before associating the Mac's SMC sensors;
+    /// the target's `built-in` property is zero and is not a Boolean proof.
+    private static func gpuPCIIdentity(_ entry: io_registry_entry_t) -> (vendorID: UInt32?, isBuiltIn: Bool) {
+        var ancestor = entry
+        IOObjectRetain(ancestor)
+        defer { IOObjectRelease(ancestor) }
+        var vendorID: UInt32?
+        var builtIn = false
+        var tunnelled = false
+        for _ in 0..<32 {
+            func property(_ name: String) -> Any? {
+                IORegistryEntryCreateCFProperty(ancestor, name as CFString, kCFAllocatorDefault, 0)?
+                    .takeRetainedValue()
+            }
+            if vendorID == nil, let data = property("vendor-id") as? Data, data.count == 4 {
+                vendorID = data.enumerated().reduce(UInt32(0)) { $0 | (UInt32($1.element) << (8 * $1.offset)) }
+                builtIn = (property("acpi-path") as? String)?.hasPrefix("IOACPIPlane:") == true
+            }
+            if (property("IOPCITunnelled") as? NSNumber)?.boolValue == true { tunnelled = true }
+            var parent: io_registry_entry_t = 0
+            guard IORegistryEntryGetParentEntry(ancestor, kIOServicePlane, &parent) == kIOReturnSuccess else { break }
+            IOObjectRelease(ancestor)
+            ancestor = parent
+        }
+        return (vendorID, builtIn && !tunnelled)
     }
 
     // MARK: - Memory pressure

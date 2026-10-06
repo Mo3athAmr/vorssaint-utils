@@ -15,6 +15,97 @@ enum CPUTemperaturePlatform: Equatable {
     case generic
 }
 
+/// The panel represents one primary GPU, not whichever accelerator answered
+/// first. Registry IDs also prevent cached readings crossing device changes.
+struct GPUDeviceReading {
+    enum Vendor { case amd, intel, apple, other }
+    let registryID: UInt64
+    let vendor: Vendor
+    let isBuiltIn: Bool
+    let utilization: Double?
+}
+
+enum GPUMetricAssociation {
+    static func selectedDevice(_ devices: [GPUDeviceReading],
+                               platform: CPUTemperaturePlatform) -> GPUDeviceReading? {
+        if platform == .intel {
+            // Preserve the target Mac's discrete-GPU panel semantics even
+            // when the integrated accelerator is enumerated first. Missing
+            // utilization must not substitute a different GPU's utilization.
+            return devices.sorted {
+                func priority(_ device: GPUDeviceReading) -> Int {
+                    if device.isBuiltIn && device.vendor == .amd { return 0 }
+                    if device.isBuiltIn && device.vendor == .intel { return 1 }
+                    return 2
+                }
+                let left = priority($0), right = priority($1)
+                return left == right ? $0.registryID < $1.registryID : left < right
+            }.first
+        }
+        // Apple chip temperatures belong to AGX, never an attached eGPU.
+        return devices.first { $0.vendor == .apple }
+            ?? devices.first { $0.utilization != nil }
+    }
+
+    static func temperature(for device: GPUDeviceReading?,
+                            devices: [GPUDeviceReading],
+                            readings: [(key: String, value: Double)],
+                            platform: CPUTemperaturePlatform) -> Double? {
+        guard let device else { return nil }
+        if platform == .intel {
+            // SMC's Radeon keys have no registry ID. Associate them only with
+            // the single built-in AMD accelerator; ambiguity stays unavailable.
+            guard device.vendor == .amd, device.isBuiltIn,
+                  devices.filter({ $0.vendor == .amd && $0.isBuiltIn }).count == 1 else { return nil }
+        } else {
+            guard device.vendor == .apple else { return nil }
+        }
+        return TemperatureSensorSelector.displayedGPUTemperature(readings: readings, platform: platform)
+    }
+}
+
+struct SMCDiagnosticReading {
+    let component: String
+    let value: Double
+    /// A codec supplies a number, not its physical units. Unknown/trend keys
+    /// remain raw until their scale and time base have been established.
+    let unit: String
+}
+
+enum SMCDiagnosticSemantics {
+    static func line(key: String, dataType: String, value: Double,
+                     platform: CPUTemperaturePlatform) -> String? {
+        guard let reading = reading(key: key, value: value, platform: platform) else { return nil }
+        return String(format: "%-18@  %@  %@  %6.2f %@",
+                      locale: Locale(identifier: "en_US_POSIX"),
+                      reading.component as NSString, key, dataType, reading.value, reading.unit)
+    }
+
+    static func reading(key: String, value: Double,
+                        platform: CPUTemperaturePlatform) -> SMCDiagnosticReading? {
+        guard value.isFinite else { return nil }
+        let component: String
+        if key.range(of: "^TB[0-9]T$", options: .regularExpression) != nil {
+            component = "battery"
+        } else if TemperatureSensorSelector.isCPUTemperatureKey(key, platform: platform) {
+            component = TemperatureSensorSelector.isCPUCoreKey(key, platform: platform)
+                ? "cpu-core" : "cpu-aux"
+        } else if TemperatureSensorSelector.isGPUTemperatureKey(key, platform: platform) {
+            component = platform == .intel ? (key == "TGDD" ? "radeon-die" : "radeon-proximity") : "gpu"
+        } else if platform == .intel && key == "TCGC" {
+            component = "intel-igpu"
+        } else if platform == .intel && key == "TC0T" {
+            return SMCDiagnosticReading(component: "cpu-trend", value: value, unit: "raw")
+        } else if platform == .intel && (key.hasPrefix("TC") || key.hasPrefix("TG")) {
+            return SMCDiagnosticReading(component: "unknown", value: value, unit: "raw")
+        } else {
+            return nil
+        }
+        guard value > 1, value < 125 else { return nil }
+        return SMCDiagnosticReading(component: component, value: value, unit: "°C")
+    }
+}
+
 struct CachedSensorReading {
     var value: Double
     var updatedAt: TimeInterval

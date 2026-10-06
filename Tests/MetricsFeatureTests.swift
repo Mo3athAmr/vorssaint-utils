@@ -587,6 +587,52 @@ enum MetricsFeatureTests {
         ) == nil, "A18 Pro remains unavailable when no CPU sensor answers")
         suite.expect(TemperatureSensorSelector.platform(brandString: "Generic CPU") == .generic,
                "other processors keep the generic CPU sensor path")
+        let intelPlatform = TemperatureSensorSelector.platform(
+            brandString: "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz"
+        )
+        suite.expect(intelPlatform == .intel
+                && TemperatureSensorSelector.hasCPUCoreSet(platform: intelPlatform),
+               "Intel hosts select a dedicated CPU core sensor set")
+        let intelSensors: [(key: String, value: Double)] = [
+            ("TC1C", 71), ("TC2C", 76), ("TC3C", 74), ("TC4C", 72),
+            ("TC5C", 73), ("TC6C", 74), ("TC7C", 75), ("TC8C", 69),
+            ("TCMX", 96), ("TC0F", 98), ("TC0P", 66),
+            ("TCGC", 88), ("TGDD", 77), ("TB0T", 38),
+        ]
+        let intelCPU = intelSensors.filter {
+            TemperatureSensorSelector.isCPUTemperatureKey($0.key, platform: intelPlatform)
+        }
+        suite.expect(intelCPU.map(\.key).contains("TC1C")
+                && intelCPU.map(\.key).contains("TC8C")
+                && intelCPU.map(\.key).contains("TC0F")
+                && !intelCPU.map(\.key).contains("TCGC")
+                && !intelCPU.map(\.key).contains("TGDD")
+                && !intelCPU.map(\.key).contains("TB0T"),
+               "Intel CPU discovery includes PECI CPU keys and excludes integrated GPU, Radeon, and battery")
+        suite.expectClose(TemperatureSensorSelector.displayedCPUTemperature(
+            readings: intelCPU, platform: intelPlatform
+        ) ?? -1, 76, "Intel CPU display uses the hottest valid physical core and ignores package auxiliaries")
+        suite.expect(!TemperatureSensorSelector.isCPUCoreKey("TCGC", platform: intelPlatform)
+                && !TemperatureSensorSelector.isCPUCoreKey("TCMX", platform: intelPlatform),
+               "Intel integrated graphics and aggregate CPU keys are not mislabeled as per-core readings")
+        suite.expect(TemperatureSensorSelector.isGPUTemperatureKey("TGDD", platform: intelPlatform)
+                && TemperatureSensorSelector.isGPUTemperatureKey("TG0P", platform: intelPlatform)
+                && !TemperatureSensorSelector.isGPUTemperatureKey("TG1P", platform: intelPlatform)
+                && !TemperatureSensorSelector.isGPUTemperatureKey("TCGC", platform: intelPlatform),
+               "Intel GPU temperature selection admits verified die/proximity keys, not VRAM or iGPU CPU-family keys")
+        suite.expectClose(TemperatureSensorSelector.displayedGPUTemperature(
+            readings: [("TG0P", 66), ("TGDD", 77), ("TG1P", 92), ("TGVF", 64)],
+            platform: intelPlatform
+        ) ?? -1, 77, "Intel Radeon die temperature takes priority over proximity and VRAM readings")
+        suite.expectClose(TemperatureSensorSelector.displayedGPUTemperature(
+            readings: [("TGDD", 130), ("TG0P", 68)], platform: intelPlatform
+        ) ?? -1, 68, "Intel GPU proximity is used only when the die reading is invalid")
+        suite.expect(TemperatureSensorSelector.displayedGPUTemperature(
+            readings: [("TG1P", 65)], platform: intelPlatform
+        ) == nil, "Intel GPU temperature stays unavailable when only a VRAM probe answers")
+        suite.expectClose(TemperatureSensorSelector.displayedGPUTemperature(
+            readings: [("Tg0D", 62), ("Tg1D", 67)], platform: .appleM1Family
+        ) ?? -1, 67, "Apple Silicon keeps its existing hottest Tg sensor behavior")
         suite.expect(TemperatureSensorSelector.isCPUTemperatureKey("Tf4E", platform: .appleM3Family)
                 && !TemperatureSensorSelector.isCPUTemperatureKey("Tf4E", platform: .appleM4Family)
                 && TemperatureSensorSelector.isCPUTemperatureKey("Tp01", platform: .appleM4Family),

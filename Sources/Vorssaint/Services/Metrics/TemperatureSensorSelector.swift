@@ -5,6 +5,7 @@ import Darwin
 import Foundation
 
 enum CPUTemperaturePlatform: Equatable {
+    case intel
     case appleM1Family
     case appleM2Family
     case appleM3Family
@@ -22,6 +23,17 @@ struct CachedSensorReading {
 
 enum TemperatureSensorSelector {
     static let minimumChipTemperature = 10.0
+
+    // Intel AppleSMC key names are case-sensitive. These were observed on a
+    // MacBookPro16,1; TC1C...TC8C are the eight PECI core readings. TCGC is
+    // the Intel integrated graphics core and is intentionally not a CPU key.
+    private static let intelCPUCoreKeys = Set((1...8).map { "TC\($0)C" })
+    private static let intelCPUAuxiliaryKeys: Set<String> = [
+        "TC0E", "TC0F", "TC0P", "TCMX", "TCSA", "TCXC",
+    ]
+    // TGDD is the Radeon die reading on the target Mac. TG0P is a lower
+    // confidence proximity fallback; VRAM/VR sensors are deliberately excluded.
+    private static let intelGPUTemperatureKeys: Set<String> = ["TGDD", "TG0P"]
 
     private static let appleM1CPUCoreKeys: Set<String> = [
         "Tp09", "Tp0T",
@@ -67,7 +79,10 @@ enum TemperatureSensorSelector {
         case 3: return .appleM3Family
         case 4: return .appleM4Family
         case 5: return .appleM5Family
-        default: return brand.hasPrefix("Apple ") ? .unmappedAppleSilicon : .generic
+        default:
+            if brand.hasPrefix("Apple ") { return .unmappedAppleSilicon }
+            if brand.localizedCaseInsensitiveContains("Intel") { return .intel }
+            return .generic
         }
     }
 
@@ -103,7 +118,7 @@ enum TemperatureSensorSelector {
 
     static func hasCPUCoreSet(platform: CPUTemperaturePlatform) -> Bool {
         switch platform {
-        case .appleM1Family, .appleM2Family, .appleM3Family, .appleM4Family, .appleM5Family:
+        case .intel, .appleM1Family, .appleM2Family, .appleM3Family, .appleM4Family, .appleM5Family:
             return true
         case .unmappedAppleSilicon, .generic: return false
         }
@@ -111,6 +126,8 @@ enum TemperatureSensorSelector {
 
     static func isCPUCoreKey(_ key: String, platform: CPUTemperaturePlatform) -> Bool {
         switch platform {
+        case .intel:
+            return intelCPUCoreKeys.contains(key)
         case .appleM1Family:
             return appleM1CPUCoreKeys.contains(key)
         case .appleM2Family:
@@ -128,8 +145,31 @@ enum TemperatureSensorSelector {
 
     static func isCPUTemperatureKey(_ key: String,
                                     platform: CPUTemperaturePlatform) -> Bool {
+        if platform == .intel {
+            return intelCPUCoreKeys.contains(key) || intelCPUAuxiliaryKeys.contains(key)
+        }
         if key.hasPrefix("Tp") || key.hasPrefix("Te") { return true }
         return platform == .appleM3Family && key.hasPrefix("Tf")
+    }
+
+    static func isGPUTemperatureKey(_ key: String,
+                                    platform: CPUTemperaturePlatform) -> Bool {
+        if platform == .intel { return intelGPUTemperatureKeys.contains(key) }
+        return key.hasPrefix("Tg")
+    }
+
+    static func displayedGPUTemperature(readings: [(key: String, value: Double)],
+                                        platform: CPUTemperaturePlatform) -> Double? {
+        let valid = readings.filter {
+            isGPUTemperatureKey($0.key, platform: platform)
+                && isPlausibleTemperature($0.value)
+        }
+        guard !valid.isEmpty else { return nil }
+        if platform == .intel {
+            return valid.first(where: { $0.key == "TGDD" })?.value
+                ?? valid.first(where: { $0.key == "TG0P" })?.value
+        }
+        return valid.map(\.value).max()
     }
 
     static func stabilizedTemperature(_ reading: Double?,

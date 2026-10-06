@@ -837,7 +837,7 @@ final class SystemMonitor: ObservableObject {
             if plan.needGPUTemperature {
                 if take(.temperature) {
                     next.gpuTemperature = TemperatureSensorSelector.stabilizedTemperature(
-                        self.maxTemperature(of: self.gpuKeys),
+                        self.gpuTemperature(),
                         cache: &self.gpuTemperatureCache,
                         now: now,
                         maxAge: temperatureBridge,
@@ -993,7 +993,7 @@ final class SystemMonitor: ObservableObject {
 
         let all = client.keys { name in
             TemperatureSensorSelector.isCPUTemperatureKey(name, platform: cpuTemperaturePlatform)
-                || name.hasPrefix("Tg")
+                || TemperatureSensorSelector.isGPUTemperatureKey(name, platform: cpuTemperaturePlatform)
                 || name.range(of: "^TB[0-9]T$", options: .regularExpression) != nil
         }
         cpuKeys = all.filter {
@@ -1009,7 +1009,9 @@ final class SystemMonitor: ObservableObject {
         // core sensors with no reading at all.
         let preferredNames = Set(preferredCPUKeys.map(\.name))
         fallbackCPUKeys = cpuKeys.filter { !preferredNames.contains($0.name) }
-        gpuKeys = all.filter { $0.name.hasPrefix("Tg") }
+        gpuKeys = all.filter {
+            TemperatureSensorSelector.isGPUTemperatureKey($0.name, platform: cpuTemperaturePlatform)
+        }
         batteryKeys = all.filter { $0.name.hasPrefix("TB") }
     }
 
@@ -1050,6 +1052,15 @@ final class SystemMonitor: ObservableObject {
         readings += temperatureReadings(of: fallbackCPUKeys)
         return TemperatureSensorSelector.displayedCPUTemperature(readings: readings,
                                                                  platform: cpuTemperaturePlatform)
+    }
+
+    private func gpuTemperature() -> Double? {
+        guard smc != nil else { return nil }
+        let readings = temperatureReadings(of: gpuKeys)
+        return TemperatureSensorSelector.displayedGPUTemperature(
+            readings: readings,
+            platform: cpuTemperaturePlatform
+        )
     }
 
     private func temperatureReadings(of keys: [SMCClient.Key]) -> [(key: String, value: Double)] {

@@ -44,7 +44,11 @@ enum SelfTest {
         }
 
         if let smc = SMCClient() {
-            let keys = smc.keys { $0.hasPrefix("Tp") || $0.hasPrefix("Te") || $0.hasPrefix("Tg") }
+            let platform = TemperatureSensorSelector.currentPlatform()
+            let keys = smc.keys {
+                TemperatureSensorSelector.isCPUTemperatureKey($0, platform: platform)
+                    || TemperatureSensorSelector.isGPUTemperatureKey($0, platform: platform)
+            }
             if keys.isEmpty {
                 warnings.append("no SMC temperature keys")
             } else if keys.compactMap({ smc.readValue($0) }).isEmpty {
@@ -200,11 +204,13 @@ enum SensorDump {
             print("AppleSMC unavailable")
             exit(1)
         }
+        let cpuPlatform = TemperatureSensorSelector.currentPlatform()
         let keys = smc.keys { name in
-            name.hasPrefix("Tp") || name.hasPrefix("Te") || name.hasPrefix("Tg")
+            TemperatureSensorSelector.isCPUTemperatureKey(name, platform: cpuPlatform)
+                || TemperatureSensorSelector.isGPUTemperatureKey(name, platform: cpuPlatform)
+                || (cpuPlatform == .intel && (name.hasPrefix("TC") || name.hasPrefix("TG")))
                 || name.range(of: "^TB[0-9]T$", options: .regularExpression) != nil
         }
-        let cpuPlatform = TemperatureSensorSelector.currentPlatform()
         let hasCPUCoreSet = TemperatureSensorSelector.hasCPUCoreSet(platform: cpuPlatform)
         print("component    key   type   °C")
         for key in keys.sorted(by: { $0.name < $1.name }) {
@@ -212,8 +218,12 @@ enum SensorDump {
             let component: String
             if key.name.hasPrefix("TB") {
                 component = "battery"
-            } else if key.name.hasPrefix("Tg") {
+            } else if TemperatureSensorSelector.isGPUTemperatureKey(key.name, platform: cpuPlatform) {
                 component = "gpu"
+            } else if cpuPlatform == .intel && key.name == "TCGC" {
+                component = "intel-igpu"
+            } else if cpuPlatform == .intel && key.name.hasPrefix("TG") {
+                component = "gpu-aux"
             } else if hasCPUCoreSet {
                 component = TemperatureSensorSelector.isCPUCoreKey(key.name, platform: cpuPlatform) ? "cpu-core" : "cpu-aux"
             } else {

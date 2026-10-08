@@ -333,6 +333,28 @@ enum FanControlPolicy {
         value.isFinite && value >= 1 && value < 125
     }
 
+    /// Intel activation is unvalidated. Read-only telemetry and restoration
+    /// remain available; neither a curve nor a saved resume overrides this gate.
+    static func controlIsValidated(platform: CPUTemperaturePlatform,
+                                   hostAllowsControl: Bool = true) -> Bool {
+        platform != .intel && hostAllowsControl
+    }
+
+    /// Policy A on Intel: use the same preferred die/proximity reading as the
+    /// display. Apple Silicon retains its existing validated Tg input pool.
+    static func gpuThermalInputs(readings: [(key: String, value: Double)],
+                                 platform: CPUTemperaturePlatform) -> [Double] {
+        if platform == .intel {
+            return TemperatureSensorSelector.displayedGPUTemperature(readings: readings, platform: platform)
+                .map { [$0] } ?? []
+        }
+        return readings.filter {
+            TemperatureSensorSelector.isGPUTemperatureKey($0.key, platform: platform)
+                && $0.value >= TemperatureSensorSelector.minimumChipTemperature
+                && validTemperature($0.value)
+        }.map(\.value)
+    }
+
     static func aggregatedTemperatures(
         cpuReadings: [(key: String, value: Double)],
         gpuReadings: [Double],

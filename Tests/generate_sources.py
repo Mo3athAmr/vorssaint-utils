@@ -286,6 +286,21 @@ def main():
           + declaration("Sources/Vorssaint/Services/SystemMonitor/SystemMonitor.swift",
                         "    private func readCPUUsage(").replace("private func", "func", 1)
           + "}\n}\n")
+    fan_hardware = "Sources/Vorssaint/Services/FanControl/FanControlHardware.swift"
+    write("FanControlHardwareGate.swift", "import Foundation\n"
+          + declaration(fan_hardware, "enum FanControlHardwareError:")
+          + "extension FanControlGateTests {\n"
+          + declaration(fan_hardware, "final class FanControlHardware {")
+            .replace("final class FanControlHardware", "final class Hardware", 1)
+            .replace("FanControlHardware()", "Hardware()")
+          + "}\n")
+    write("GPUDeviceCache.swift", "import Foundation\n"
+          + "extension IntelCompatibilityTests {\nfinal class Monitor: Fixture {\n"
+          + declaration("Sources/Vorssaint/Services/SystemMonitor/SystemMonitor.swift",
+                        "    private func readGPUMetrics(").replace("private func", "func", 1)
+          + declaration("Sources/Vorssaint/Services/SystemMonitor/SystemMonitor.swift",
+                        "    private func synchronizeGPUDevice(").replace("private func", "func", 1)
+          + "}\n}\n")
     uninstall = "Sources/Vorssaint/Services/Uninstall/AppUninstaller.swift"
     bar = "Sources/Vorssaint/Services/CommandBar/CommandBarService.swift"
     write("QuickPaste.swift", "import Foundation\n"
@@ -1478,6 +1493,22 @@ def main():
           + "extension AgentUsageEventDeliveryTests {\nfinal class Host: Fixture {\n"
           + declaration("Sources/Vorssaint/Services/AgentUsage/AgentUsageService.swift",
                         "    private func report(").replace("private func", "func", 1)
+          + "}\n}\n")
+
+    service = "Sources/Vorssaint/Services/AgentUsage/AgentUsageService.swift"
+    write("AgentUsageRefresh.swift", "import Foundation\n"
+          + "extension AgentUsageRefreshTests {\nfinal class Host: Fixture {\n"
+          + "".join(declaration(service, prefix)
+                    .replace("private func", "func", 1)
+                    .replace("func read(", "@discardableResult func read(", 1)
+                    .replace("func pollOpenLogs(", "@discardableResult func pollOpenLogs(", 1)
+                    for prefix in ["    func refreshUsage(", "    private func refreshSources(",
+                                   "    private func catchUpLogs(", "    private func pollOpenLogs(",
+                                   "    private func read(", "    private func readClaudeApp(",
+                                   "    private func latestClaudeAppReading(",
+                                   "    private func latestClaudeLimitsReading(",
+                                   "    private func readClaudeStatus(",
+                                   "    private func checkLimits("])
           + "}\n}\n")
 
     write("ScrollingTitleMotion.swift", "import Foundation\n"

@@ -44,7 +44,11 @@ enum SelfTest {
         }
 
         if let smc = SMCClient() {
-            let keys = smc.keys { $0.hasPrefix("Tp") || $0.hasPrefix("Te") || $0.hasPrefix("Tg") }
+            let platform = TemperatureSensorSelector.currentPlatform()
+            let keys = smc.keys {
+                TemperatureSensorSelector.isCPUTemperatureKey($0, platform: platform)
+                    || TemperatureSensorSelector.isGPUTemperatureKey($0, platform: platform)
+            }
             if keys.isEmpty {
                 warnings.append("no SMC temperature keys")
             } else if keys.compactMap({ smc.readValue($0) }).isEmpty {
@@ -200,30 +204,19 @@ enum SensorDump {
             print("AppleSMC unavailable")
             exit(1)
         }
+        let cpuPlatform = TemperatureSensorSelector.currentPlatform()
         let keys = smc.keys { name in
-            name.hasPrefix("Tp") || name.hasPrefix("Te") || name.hasPrefix("Tg")
+            TemperatureSensorSelector.isCPUTemperatureKey(name, platform: cpuPlatform)
+                || TemperatureSensorSelector.isGPUTemperatureKey(name, platform: cpuPlatform)
+                || (cpuPlatform == .intel && (name.hasPrefix("TC") || name.hasPrefix("TG")))
                 || name.range(of: "^TB[0-9]T$", options: .regularExpression) != nil
         }
-        let cpuPlatform = TemperatureSensorSelector.currentPlatform()
-        let hasCPUCoreSet = TemperatureSensorSelector.hasCPUCoreSet(platform: cpuPlatform)
-        print("component    key   type   °C")
+        print("component          key   type   value unit")
         for key in keys.sorted(by: { $0.name < $1.name }) {
-            guard let value = smc.readValue(key), value > 1, value < 125 else { continue }
-            let component: String
-            if key.name.hasPrefix("TB") {
-                component = "battery"
-            } else if key.name.hasPrefix("Tg") {
-                component = "gpu"
-            } else if hasCPUCoreSet {
-                component = TemperatureSensorSelector.isCPUCoreKey(key.name, platform: cpuPlatform) ? "cpu-core" : "cpu-aux"
-            } else {
-                component = "cpu"
-            }
-            // Diagnostic output, read by whoever ran the self-test and by
-            // scripts, so it stays on a decimal point wherever it runs.
-            print(String(format: "%-11@  %@  %@  %6.2f",
-                         locale: Locale(identifier: "en_US_POSIX"),
-                         component as NSString, key.name, key.dataType, value))
+            guard let value = smc.readValue(key),
+                  let line = SMCDiagnosticSemantics.line(key: key.name, dataType: key.dataType,
+                                                         value: value, platform: cpuPlatform) else { continue }
+            print(line)
         }
         exit(0)
     }

@@ -62,7 +62,28 @@ FAN_HELPER_ID="$APP_BUNDLE_ID.fan-control"
 # Sources/NowPlayingAdapter. Staged under Contents/Frameworks, signed on its own.
 NOW_PLAYING_ADAPTER_ID="$APP_BUNDLE_ID.now-playing"
 NOW_PLAYING_ADAPTER="libVorssaintNowPlaying.dylib"
-TARGET="arm64-apple-macosx14.0"
+# Build for the Mac the script runs on. The hardware decides, not the process:
+# `uname -m` reports the architecture of the calling process, so a shell run under
+# Rosetta on Apple Silicon says x86_64 on a machine that must still build arm64.
+# hw.optional.arm64 is 1 on Apple Silicon whatever the process is, and does not
+# exist on an Intel Mac. VORSSAINT_ARCH=arm64|x86_64 overrides it (CI, debugging);
+# a bundle the host cannot run still fails at the helper and test self-checks.
+host_architecture() {
+    if [[ "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" == "1" ]]; then
+        print -r -- arm64
+    else
+        uname -m
+    fi
+}
+ARCH="${VORSSAINT_ARCH:-$(host_architecture)}"
+case "$ARCH" in
+    arm64|x86_64) ;;
+    *)
+        echo "✗ Unsupported architecture '$ARCH': expected arm64 or x86_64 (see VORSSAINT_ARCH)." >&2
+        exit 1
+        ;;
+esac
+TARGET="$ARCH-apple-macosx14.0"
 ENTITLEMENTS="Resources/Vorssaint.entitlements"
 LEGACY_IDENTITY="Vorssaint Utils Signing"
 
@@ -290,6 +311,7 @@ if (( TEST )); then
         Sources/Vorssaint/Services/AgentUsage/AgentUsageStore.swift
         Sources/Vorssaint/Services/AgentUsage/AgentUsageArchive.swift
         Sources/Vorssaint/Services/AgentUsage/AgentClaudeAppUsage.swift
+        Sources/Vorssaint/Services/AgentUsage/AgentClaudeStatusLimits.swift
         Sources/Vorssaint/Services/AgentUsage/AgentCodexServer.swift
         Sources/Vorssaint/Services/AgentUsage/AgentOpenCodeReader.swift
         Sources/Vorssaint/Services/Notch/NotchGestureSupport.swift

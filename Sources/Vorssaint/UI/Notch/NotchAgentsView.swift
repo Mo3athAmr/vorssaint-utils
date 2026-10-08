@@ -81,7 +81,10 @@ struct NotchAgentsView: View {
         case .limits:
             if let provider = tile.provider {
                 NotchAgentLimitsCard(provider: provider, snapshot: snapshot, now: now,
-                                     display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining, text: text)
+                                     display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining, text: text,
+                                     appStale: provider == .claude && AgentClaudeAppUsage.isStillOld(
+                                         foundOld: usage.claudeStaleAfterRefresh,
+                                         latest: snapshot.limits[.claude]?.observedAt))
             }
         case .spend:
             NotchAgentSpendCard(snapshot: snapshot, providers: providers, period: $period, text: text)
@@ -126,12 +129,17 @@ private struct NotchAgentLimitsCard: View {
     let now: Date
     let display: NotchAgentLimitDisplay
     let text: NotchAgentStrings
+    /// A refresh the person asked for found the Claude app's reading still
+    /// old: it has reported nothing newer. True only while that same reading
+    /// is the latest, so a newer one clears it without another refresh.
+    var appStale = false
     @Environment(\.locale) private var locale
 
-    /// A reading the Claude app saved a while ago: still the latest known,
-    /// shown quieter until the app checks again.
+    /// A reading Claude reported a while ago, through its app or its status
+    /// line: still the latest known, shown quieter until it reports again.
     private var stale: Bool {
-        guard let limits = snapshot.limits[provider], limits.source == .claudeApp else { return false }
+        guard let limits = snapshot.limits[provider],
+              limits.source == .claudeApp || (provider == .claude && limits.source == .account) else { return false }
         return now.timeIntervalSince(limits.observedAt) >= AgentClaudeAppUsage.freshness
     }
 
@@ -171,11 +179,15 @@ private struct NotchAgentLimitsCard: View {
     /// How old a reading is, once it is old enough to have missed use elsewhere.
     @ViewBuilder private var caption: some View {
         if let observed = snapshot.limits[provider]?.observedAt, now.timeIntervalSince(observed) > 600 {
-            Text(text.updated(observed.formatted(.relative(presentation: .named, unitsStyle: .abbreviated)
-                .locale(locale))))
-                .font(.system(size: 9.5))
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
+            HStack(spacing: 3) {
+                Text(text.updated(observed.formatted(.relative(presentation: .named, unitsStyle: .abbreviated)
+                    .locale(locale))))
+                    .lineLimit(1)
+                if appStale { Image(systemName: "exclamationmark.circle") }
+            }
+            .font(.system(size: 9.5))
+            .foregroundStyle(.tertiary)
+            .help(appStale ? text.claudeRefreshStale : "")
         }
     }
 
@@ -244,6 +256,7 @@ private struct NotchAgentLimitsCard: View {
         if let observed = snapshot.limits[provider]?.observedAt, now.timeIntervalSince(observed) > 600 {
             parts.append(text.updated(observed.formatted(.relative(presentation: .named).locale(locale))))
         }
+        if appStale { parts.append(text.claudeRefreshStale) }
         return parts.joined(separator: " · ")
     }
 

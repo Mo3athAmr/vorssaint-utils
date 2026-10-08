@@ -24,6 +24,12 @@ final class AgentUsageService: ObservableObject {
     @Published private(set) var claudeAppChecked: Date?
     /// The day of the price list in use.
     @Published private(set) var pricesUpdated: Date?
+    /// True from a request to refresh until the snapshot it produced is handed over.
+    @Published private(set) var isRefreshing = false
+    /// The Claude app's newest reading when the last refresh found it still
+    /// old, so it has not checked since: told apart from a newer reading by
+    /// comparing with `claudeAppChecked`. Nil when it was recent.
+    @Published private(set) var claudeStaleAfterRefresh: Date?
     let events = PassthroughSubject<AgentUsageEvent, Never>()
 
     /// The history the island can show: thirteen weeks for the activity map.
@@ -42,6 +48,7 @@ final class AgentUsageService: ObservableObject {
 
     private let queue = DispatchQueue(label: "com.vorssaint.agent-usage", qos: .utility, autoreleaseFrequency: .workItem)
     private let home = FileManager.default.homeDirectoryForCurrentUser
+    private var claudeStatusURL: URL? { AgentClaudeStatusLimits.fileURL }
 
     /// Lets a stop end a first read that is still going on the queue.
     private final class Cancellation {
@@ -83,6 +90,8 @@ final class AgentUsageService: ObservableObject {
     private var claudeProfileModified: Date?
     private var claudeAppModified: Date?
     private var claudeAppSamples: [AgentClaudeAppUsage.Sample] = []
+    private var claudeStatusModified: Date?
+    private var claudeStatusReading: AgentClaudeStatusLimits.Reading?
     private var shippedPrices: AgentPriceList?
     private var previousLimits: [AgentProvider: AgentLimits] = [:]
     /// Warned windows, each waiting for its renewal.
@@ -160,6 +169,8 @@ final class AgentUsageService: ObservableObject {
         providers = []
         pricesInFlight = false
         pricesSaved = nil
+        isRefreshing = false
+        claudeStaleAfterRefresh = nil
         snapshot = AgentUsageSnapshot()
         claudeAppChecked = nil
         queue.async { [self] in
@@ -181,6 +192,8 @@ final class AgentUsageService: ObservableObject {
             claudeProfileModified = nil
             claudeAppModified = nil
             claudeAppSamples = []
+            claudeStatusModified = nil
+            claudeStatusReading = nil
             savedMark = nil
             lastSave = .distantPast
         }
@@ -206,6 +219,80 @@ final class AgentUsageService: ObservableObject {
             readClaudeApp(now: Date())
             checkLimits()
             publish()
+        }
+    }
+
+    /// The person asked for what changed meanwhile now, rather than at the
+    /// next file event or tick: new usage and spending, the latest limits and
+    /// the Codex account's. Live work is left to the watcher and the poll, and
+    /// nothing is restarted or read again: every log continues from where it
+    /// stopped. A request while one is running is dropped, since that one
+    /// looks at the same files. Main thread.
+    func refreshUsage() {
+        guard running, !paused, !isRefreshing else { return }
+        isRefreshing = true
+        let session = self.session
+        checkCodexAccount()
+        queue.async { [self] in
+            let stale = readerSession == session ? refreshSources(now: Date()) : nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.session == session else { return }
+                self.isRefreshing = false
+                if self.claudeStaleAfterRefresh != stale { self.claudeStaleAfterRefresh = stale }
+            }
+        }
+    }
+
+    /// Codex's own server answers for the account, newer than its logs. It
+    /// only looks: a reset is never used here. Main thread.
+    private func checkCodexAccount() {
+        guard providers.contains(.codex) else { return }
+        AgentCodexResetService.shared.refresh()
+    }
+
+    /// Reads what the logs gained and the limits saved since each was last
+    /// looked at, then hands the result over at once. The price list in use
+    /// prices whatever is read, as always; none is downloaded. A source that
+    /// cannot be read keeps what it gave before. Claude reports its limits
+    /// only on its own schedule, which nothing here can start, so a reading
+    /// that is still old is not made newer: the answer is its date, for the
+    /// page to say so. Runs on `queue`.
+    private func refreshSources(now: Date) -> Date? {
+        guard readerSession >= 0 else { return nil }
+        catchUpLogs()
+        readClaudePlan()
+        readClaudeApp(now: now)
+        checkLimits()
+        publish()
+        guard let reading = latestClaudeLimitsReading(),
+              now.timeIntervalSince(reading) >= AgentClaudeAppUsage.freshness else { return nil }
+        return reading
+    }
+
+    /// When the Claude app saved the reading of the account Claude Code uses;
+    /// nil without one, or with Claude off. Runs on `queue`.
+    private func latestClaudeAppReading() -> Date? {
+        guard enabled.contains(.claude) else { return nil }
+        return claudeAppSamples.last(where: {
+            claudeOrganization == nil || $0.organization == nil || $0.organization == claudeOrganization
+        })?.date
+    }
+
+    /// When Claude last reported its limits, by the Claude app or by Claude
+    /// Code's status line, whichever is newer. Runs on `queue`.
+    private func latestClaudeLimitsReading() -> Date? {
+        [latestClaudeAppReading(), enabled.contains(.claude) ? claudeStatusReading?.date : nil].compactMap { $0 }.max()
+    }
+
+    /// Logs already known are looked at from where they stopped, all those
+    /// of the history shown rather than only recent ones. A log that appeared
+    /// since is read as discovery would. Runs on `queue`.
+    private func catchUpLogs() {
+        pollOpenLogs(within: Self.horizon)
+        let roots = AgentLogRoot.all(home: home).filter { enabled.contains($0.provider) }
+        for file in AgentLogReader.discover(roots, since: Date().addingTimeInterval(-Self.horizon))
+        where cursors[file.path] == nil {
+            read(file.path, provider: file.provider)
         }
     }
 
@@ -328,6 +415,7 @@ final class AgentUsageService: ObservableObject {
     /// Reads the logs that grew, were replaced or disappeared since the last
     /// look, among those an agent may still be writing. True when that
     /// changed what is stored.
+    @discardableResult
     private func pollOpenLogs(within window: TimeInterval) -> Bool {
         guard readerSession >= 0 else { return false }
         let now = Date()
@@ -513,9 +601,7 @@ final class AgentUsageService: ObservableObject {
         let next = store.snapshot(plans: plans, providers: enabled, now: Date())
         published = next
         checkBudget(next)
-        let checked = enabled.contains(.claude) ? claudeAppSamples.last(where: {
-            claudeOrganization == nil || $0.organization == nil || $0.organization == claudeOrganization
-        })?.date : nil
+        let checked = latestClaudeAppReading()
         let listed = AgentPricing.list.updated
         let prices = listed == AgentPriceList.empty.updated ? nil : listed
         DispatchQueue.main.async { [weak self] in
@@ -610,31 +696,67 @@ final class AgentUsageService: ObservableObject {
                                         ?? account["userRateLimitTier"] as? String)
     }
 
-    /// Reads the limits the Claude app saved when the file changes, and
-    /// places them at `now` on every call, since a session ages out between
-    /// saves. Runs on `queue`.
+    /// Reads the limits the Claude app saved, and those Claude Code's status
+    /// line saved, when their files change, and places the newer reading at
+    /// `now` on every call, since a session ages out between saves. Runs on
+    /// `queue`.
     private func readClaudeApp(now: Date) {
         guard enabled.contains(.claude) else {
-            if store.limits[.claude]?.source == .claudeApp { store.clearLimits(.claude) }
+            if let source = store.limits[.claude]?.source, source == .claudeApp || source == .account {
+                store.clearLimits(.claude)
+            }
             claudeAppModified = nil
             claudeAppSamples = []
+            claudeStatusModified = nil
+            claudeStatusReading = nil
             return
         }
         let url = AgentClaudeAppUsage.historyURL(home: home)
         let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
         if modified != claudeAppModified {
-            claudeAppModified = modified
-            claudeAppSamples = modified == nil ? []
-                : (try? Data(contentsOf: url)).flatMap(AgentClaudeAppUsage.samples) ?? []
+            if modified == nil {
+                claudeAppModified = nil
+                claudeAppSamples = []
+            } else if let data = try? Data(contentsOf: url) {
+                claudeAppModified = modified
+                claudeAppSamples = AgentClaudeAppUsage.samples(from: data) ?? []
+            }
+            // A file that cannot be read now, as while the app replaces it,
+            // keeps what it gave before, and is tried again at the next look.
         }
+        readClaudeStatus()
         // Claude Code's own first request can place the session's start.
         let start = AgentClaudeAppUsage.sessionStart(store.records, samples: claudeAppSamples,
                                                      organization: claudeOrganization)
-        if let limits = AgentClaudeAppUsage.limits(from: claudeAppSamples, now: now, sessionStart: start,
-                                                   organization: claudeOrganization) {
-            store.setLimits(limits)
-        } else if store.limits[.claude]?.source == .claudeApp {
+        let app = AgentClaudeAppUsage.limits(from: claudeAppSamples, now: now, sessionStart: start,
+                                             organization: claudeOrganization)
+        let status = claudeStatusReading.flatMap { AgentClaudeStatusLimits.limits(from: $0, now: now) }
+        // Whichever reading is newer shows, never the other beside it.
+        if let newest = [app, status].compactMap({ $0 }).max(by: { $0.observedAt < $1.observedAt }) {
+            store.setLimits(newest)
+        } else if let source = store.limits[.claude]?.source, source == .claudeApp || source == .account {
             store.clearLimits(.claude)
+        }
+    }
+
+    /// The status line's file, read when it changes; one that cannot be read
+    /// now keeps the last reading. It belongs to the account Claude Code
+    /// signs in to, the one the Claude app's readings are filtered to.
+    /// Runs on `queue`.
+    private func readClaudeStatus() {
+        guard let url = claudeStatusURL else {
+            claudeStatusModified = nil
+            claudeStatusReading = nil
+            return
+        }
+        let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        guard modified != claudeStatusModified else { return }
+        if modified == nil {
+            claudeStatusModified = nil
+            claudeStatusReading = nil
+        } else if let data = try? Data(contentsOf: url) {
+            claudeStatusModified = modified
+            claudeStatusReading = AgentClaudeStatusLimits.reading(from: data)
         }
     }
 

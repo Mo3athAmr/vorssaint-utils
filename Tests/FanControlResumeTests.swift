@@ -13,6 +13,10 @@ enum FanControlResumeContract {
         case fanControl
         var isAvailable: Bool { Environment.available }
     }
+    enum TemperatureSensorSelector {
+        static var platform = CPUTemperaturePlatform.appleM3Family
+        static func currentPlatform() -> CPUTemperaturePlatform { platform }
+    }
     enum UserDefaults {
         static let standard = Store()
         final class Store {
@@ -55,6 +59,7 @@ enum FanControlResumeContract {
         func reset(resume: Bool = true, stored: FanControlConfiguration? = manual,
                    recovery: Bool = false) {
             Environment.available = true
+            TemperatureSensorSelector.platform = .appleM3Family
             defaults.values = [:]
             defaults.values[DefaultsKey.fanControlResume] = resume
             defaults.values[DefaultsKey.fanControlRecoveryNeeded] = recovery
@@ -73,6 +78,13 @@ enum FanControlResumeContract {
             service.events = []
         }
         var storedResume: String? { defaults.string(forKey: DefaultsKey.fanControlResumeConfiguration) }
+
+        reset()
+        TemperatureSensorSelector.platform = .intel
+        Service.recoverIfNeeded()
+        service.workspaceDidWake()
+        suite.expect(service.applied.isEmpty,
+                     "Intel saved fan control cannot activate on launch or wake while validation is gated")
 
         reset(resume: false, recovery: true)
         Service.recoverIfNeeded()

@@ -202,6 +202,9 @@ private final class FanControlController {
                 ? .success(currentSnapshot())
                 : .failure(.controlFailed, snapshot: currentSnapshot())
         }
+        guard FanControlPolicy.controlIsValidated(platform: TemperatureSensorSelector.currentPlatform()) else {
+            return .failure(.unsupportedHardware, snapshot: currentSnapshot())
+        }
         if isCooling {
             guard owner == id else {
                 return .failure(.alreadyControlled, snapshot: currentSnapshot())
@@ -488,6 +491,9 @@ private final class FanControlController {
                                                  stopReason: lastStopReason,
                                                  coolingLevel: nil,
                                                  configuration: nil)
+            if !FanControlPolicy.controlIsValidated(platform: TemperatureSensorSelector.currentPlatform()) {
+                return .failure(.unsupportedHardware, snapshot: snapshot)
+            }
             if snapshot.fans.contains(where: \.isManuallyControlled) {
                 return .failure(.alreadyControlled, snapshot: snapshot)
             }

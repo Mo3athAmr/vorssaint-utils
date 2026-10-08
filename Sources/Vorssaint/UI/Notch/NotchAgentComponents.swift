@@ -424,3 +424,24 @@ struct NotchAgentMark: View {
         }
     }
 }
+
+/// Asks the AI page for its usage, spending and limits now, from the island's
+/// header like the other pages' actions. Observes the service on its own, so
+/// a refresh redraws only this button; it shows progress while the service
+/// reads and while Codex answers for the account, and is passive otherwise.
+struct NotchRefreshAgentsButton: View {
+    @ObservedObject private var usage = AgentUsageService.shared
+    @ObservedObject private var resets = AgentCodexResetService.shared
+    @ObservedObject private var l10n = L10n.shared
+
+    var body: some View {
+        let text = FeatureStrings.notchAgents(l10n.language)
+        let busy = usage.isRefreshing || resets.checking
+        NotchIconButton(symbol: "arrow.clockwise", title: text.refreshTitle, action: usage.refreshUsage)
+            .opacity(busy ? 0 : 1)
+            .overlay { if busy { ProgressView().controlSize(.mini).allowsHitTesting(false) } }
+            .disabled(usage.isRefreshing)
+            .help(text.refreshHelp)
+            .accessibilityHint(text.refreshHelp)
+    }
+}

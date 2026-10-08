@@ -107,6 +107,13 @@ struct NotchAgentStrings {
     let integrationRepair: String
     let lastRefreshFormat: String
     let fallbackFormat: String
+    let directAvailableFormat: String
+    let directReady: String
+    let directMissing: String
+    let directUnsupported: String
+    let directNoPlan: String
+    let refreshFailed: String
+    let passiveTitle: String
 
     func tokens(_ count: String) -> String { String(format: tokensFormat, count) }
     func cached(_ share: String) -> String { String(format: cachedFormat, share) }
@@ -122,6 +129,7 @@ struct NotchAgentStrings {
     func statusLineReceived(_ when: String) -> String { String(format: statusLineReceivedFormat, when) }
     func lastRefresh(_ when: String) -> String { String(format: lastRefreshFormat, when) }
     func fallback(_ when: String) -> String { String(format: fallbackFormat, when) }
+    func directAvailable(_ when: String) -> String { String(format: directAvailableFormat, when) }
 
     func period(_ period: AgentPeriod) -> String {
         switch period {
@@ -288,7 +296,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint could not update its script. Try Repair / Update.",
         integrationRepair: "Repair / Update",
         lastRefreshFormat: "Last refresh: %@",
-        fallbackFormat: "Fallback: Claude app history, last report %@")
+        fallbackFormat: "Fallback: Claude app history, last report %@",
+        directAvailableFormat: "Real-time limits through Claude Code. Last check: %@",
+        directReady: "Real-time limits through Claude Code. Press Refresh to check.",
+        directMissing: "Claude Code was not found, so limits update only passively.",
+        directUnsupported: "This version of Claude Code cannot report limits on request.",
+        directNoPlan: "Claude Code is not signed in with a Claude plan.",
+        refreshFailed: "Refresh failed. Showing the last successful data.",
+        passiveTitle: "Passive updates (status line)")
 
     static let uk = NotchAgentStrings(
         title: "ШІ-агенти",
@@ -393,7 +408,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint не зміг оновити свій скрипт. Спробуйте «Виправити / оновити».",
         integrationRepair: "Виправити / оновити",
         lastRefreshFormat: "Останнє оновлення: %@",
-        fallbackFormat: "Резерв: історія застосунку Claude, останній звіт %@")
+        fallbackFormat: "Резерв: історія застосунку Claude, останній звіт %@",
+        directAvailableFormat: "Ліміти в реальному часі через Claude Code. Остання перевірка: %@",
+        directReady: "Ліміти в реальному часі через Claude Code. Натисніть «Оновити», щоб перевірити.",
+        directMissing: "Claude Code не знайдено, тому ліміти оновлюються лише пасивно.",
+        directUnsupported: "Ця версія Claude Code не вміє повідомляти ліміти на запит.",
+        directNoPlan: "Claude Code не ввійшов із планом Claude.",
+        refreshFailed: "Не вдалося оновити. Показано останні успішні дані.",
+        passiveTitle: "Пасивні оновлення (рядок стану)")
 
     static let ptBR = NotchAgentStrings(
         title: "Agentes de IA",
@@ -498,7 +520,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "O Vorssaint não conseguiu atualizar o próprio script. Tente Reparar / Atualizar.",
         integrationRepair: "Reparar / Atualizar",
         lastRefreshFormat: "Última atualização: %@",
-        fallbackFormat: "Alternativa: histórico do app Claude, último relatório %@")
+        fallbackFormat: "Alternativa: histórico do app Claude, último relatório %@",
+        directAvailableFormat: "Limites em tempo real pelo Claude Code. Última verificação: %@",
+        directReady: "Limites em tempo real pelo Claude Code. Toque em Atualizar para verificar.",
+        directMissing: "O Claude Code não foi encontrado; os limites só se atualizam passivamente.",
+        directUnsupported: "Esta versão do Claude Code não informa os limites sob demanda.",
+        directNoPlan: "O Claude Code não está conectado com um plano do Claude.",
+        refreshFailed: "Falha ao atualizar. Mostrando os últimos dados bem-sucedidos.",
+        passiveTitle: "Atualizações passivas (linha de status)")
 
     static let es = NotchAgentStrings(
         title: "Agentes de IA",
@@ -603,7 +632,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint no pudo actualizar su script. Prueba Reparar / Actualizar.",
         integrationRepair: "Reparar / Actualizar",
         lastRefreshFormat: "Última actualización: %@",
-        fallbackFormat: "Alternativa: historial de la app de Claude, último informe %@")
+        fallbackFormat: "Alternativa: historial de la app de Claude, último informe %@",
+        directAvailableFormat: "Límites en tiempo real mediante Claude Code. Última comprobación: %@",
+        directReady: "Límites en tiempo real mediante Claude Code. Pulsa Actualizar para comprobar.",
+        directMissing: "No se encontró Claude Code, así que los límites solo se actualizan de forma pasiva.",
+        directUnsupported: "Esta versión de Claude Code no puede informar de los límites a petición.",
+        directNoPlan: "Claude Code no ha iniciado sesión con un plan de Claude.",
+        refreshFailed: "No se pudo actualizar. Se muestran los últimos datos correctos.",
+        passiveTitle: "Actualizaciones pasivas (línea de estado)")
 
     static let sk = NotchAgentStrings(
         title: "AI agenti",
@@ -708,7 +744,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint nedokázal aktualizovať svoj skript. Skúste Opraviť / aktualizovať.",
         integrationRepair: "Opraviť / aktualizovať",
         lastRefreshFormat: "Posledné obnovenie: %@",
-        fallbackFormat: "Záloha: história aplikácie Claude, posledný report %@")
+        fallbackFormat: "Záloha: história aplikácie Claude, posledný report %@",
+        directAvailableFormat: "Limity v reálnom čase cez Claude Code. Posledná kontrola: %@",
+        directReady: "Limity v reálnom čase cez Claude Code. Skontrolujete ich tlačidlom Obnoviť.",
+        directMissing: "Claude Code sa nenašiel, preto sa limity aktualizujú iba pasívne.",
+        directUnsupported: "Táto verzia Claude Code nevie hlásiť limity na požiadanie.",
+        directNoPlan: "Claude Code nie je prihlásený s plánom Claude.",
+        refreshFailed: "Obnovenie zlyhalo. Zobrazujú sa posledné úspešné údaje.",
+        passiveTitle: "Pasívne aktualizácie (stavový riadok)")
 
     static let de = NotchAgentStrings(
         title: "KI-Agenten",
@@ -813,7 +856,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint konnte sein Skript nicht aktualisieren. Versuche „Reparieren / Aktualisieren“.",
         integrationRepair: "Reparieren / Aktualisieren",
         lastRefreshFormat: "Zuletzt aktualisiert: %@",
-        fallbackFormat: "Ersatzquelle: Verlauf der Claude-App, letzter Bericht %@")
+        fallbackFormat: "Ersatzquelle: Verlauf der Claude-App, letzter Bericht %@",
+        directAvailableFormat: "Limits in Echtzeit über Claude Code. Letzte Prüfung: %@",
+        directReady: "Limits in Echtzeit über Claude Code. Zum Prüfen auf Aktualisieren klicken.",
+        directMissing: "Claude Code wurde nicht gefunden, die Limits werden nur passiv aktualisiert.",
+        directUnsupported: "Diese Version von Claude Code meldet Limits nicht auf Anfrage.",
+        directNoPlan: "Claude Code ist nicht mit einem Claude-Tarif angemeldet.",
+        refreshFailed: "Aktualisierung fehlgeschlagen. Die letzten erfolgreichen Daten werden angezeigt.",
+        passiveTitle: "Passive Aktualisierungen (Statuszeile)")
 
     static let fr = NotchAgentStrings(
         title: "Agents IA",
@@ -918,7 +968,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint n’a pas pu mettre à jour son script. Essayez Réparer / Mettre à jour.",
         integrationRepair: "Réparer / Mettre à jour",
         lastRefreshFormat: "Dernière actualisation : %@",
-        fallbackFormat: "Source de secours : historique de l’app Claude, dernier rapport %@")
+        fallbackFormat: "Source de secours : historique de l’app Claude, dernier rapport %@",
+        directAvailableFormat: "Limites en temps réel via Claude Code. Dernière vérification : %@",
+        directReady: "Limites en temps réel via Claude Code. Appuyez sur Actualiser pour vérifier.",
+        directMissing: "Claude Code est introuvable ; les limites ne se mettent à jour que passivement.",
+        directUnsupported: "Cette version de Claude Code ne peut pas signaler les limites à la demande.",
+        directNoPlan: "Claude Code n’est pas connecté avec un forfait Claude.",
+        refreshFailed: "Échec de l’actualisation. Dernières données réussies affichées.",
+        passiveTitle: "Mises à jour passives (ligne d’état)")
 
     static let it = NotchAgentStrings(
         title: "Agenti IA",
@@ -1023,7 +1080,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint non è riuscito ad aggiornare il proprio script. Prova Ripara / Aggiorna.",
         integrationRepair: "Ripara / Aggiorna",
         lastRefreshFormat: "Ultimo aggiornamento: %@",
-        fallbackFormat: "Alternativa: cronologia dell’app Claude, ultimo rapporto %@")
+        fallbackFormat: "Alternativa: cronologia dell’app Claude, ultimo rapporto %@",
+        directAvailableFormat: "Limiti in tempo reale tramite Claude Code. Ultimo controllo: %@",
+        directReady: "Limiti in tempo reale tramite Claude Code. Premi Aggiorna per controllare.",
+        directMissing: "Claude Code non è stato trovato, quindi i limiti si aggiornano solo passivamente.",
+        directUnsupported: "Questa versione di Claude Code non può segnalare i limiti su richiesta.",
+        directNoPlan: "Claude Code non ha effettuato l’accesso con un piano Claude.",
+        refreshFailed: "Aggiornamento non riuscito. Vengono mostrati gli ultimi dati validi.",
+        passiveTitle: "Aggiornamenti passivi (riga di stato)")
 
     static let ru = NotchAgentStrings(
         title: "ИИ-агенты",
@@ -1128,7 +1192,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint не удалось обновить свой скрипт. Попробуйте «Исправить / обновить».",
         integrationRepair: "Исправить / обновить",
         lastRefreshFormat: "Последнее обновление: %@",
-        fallbackFormat: "Резерв: история приложения Claude, последний отчёт %@")
+        fallbackFormat: "Резерв: история приложения Claude, последний отчёт %@",
+        directAvailableFormat: "Лимиты в реальном времени через Claude Code. Последняя проверка: %@",
+        directReady: "Лимиты в реальном времени через Claude Code. Нажмите «Обновить», чтобы проверить.",
+        directMissing: "Claude Code не найден, поэтому лимиты обновляются только пассивно.",
+        directUnsupported: "Эта версия Claude Code не может сообщать лимиты по запросу.",
+        directNoPlan: "Claude Code не выполнил вход с тарифом Claude.",
+        refreshFailed: "Не удалось обновить. Показаны последние успешные данные.",
+        passiveTitle: "Пассивные обновления (строка состояния)")
 
     static let tr = NotchAgentStrings(
         title: "YZ Ajanları",
@@ -1233,7 +1304,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint betiğini güncelleyemedi. Onar / Güncelle’yi deneyin.",
         integrationRepair: "Onar / Güncelle",
         lastRefreshFormat: "Son yenileme: %@",
-        fallbackFormat: "Yedek: Claude uygulaması geçmişi, son rapor %@")
+        fallbackFormat: "Yedek: Claude uygulaması geçmişi, son rapor %@",
+        directAvailableFormat: "Claude Code ile gerçek zamanlı sınırlar. Son denetim: %@",
+        directReady: "Claude Code ile gerçek zamanlı sınırlar. Denetlemek için Yenile’ye basın.",
+        directMissing: "Claude Code bulunamadı; sınırlar yalnızca pasif olarak güncellenir.",
+        directUnsupported: "Bu Claude Code sürümü sınırları istek üzerine bildiremiyor.",
+        directNoPlan: "Claude Code bir Claude planıyla oturum açmamış.",
+        refreshFailed: "Yenileme başarısız. Son başarılı veriler gösteriliyor.",
+        passiveTitle: "Pasif güncellemeler (durum satırı)")
 
     static let ja = NotchAgentStrings(
         title: "AIエージェント",
@@ -1338,7 +1416,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaintがスクリプトを更新できませんでした。「修復 / 更新」をお試しください。",
         integrationRepair: "修復 / 更新",
         lastRefreshFormat: "最終更新: %@",
-        fallbackFormat: "代替: Claudeアプリの履歴、最後のレポート %@")
+        fallbackFormat: "代替: Claudeアプリの履歴、最後のレポート %@",
+        directAvailableFormat: "Claude Code経由のリアルタイムの上限。最終確認: %@",
+        directReady: "Claude Code経由のリアルタイムの上限。「更新」を押すと確認します。",
+        directMissing: "Claude Codeが見つからないため、上限は受動的にのみ更新されます。",
+        directUnsupported: "このバージョンのClaude Codeは、要求に応じて上限を報告できません。",
+        directNoPlan: "Claude CodeはClaudeプランでサインインしていません。",
+        refreshFailed: "更新に失敗しました。最後に成功したデータを表示しています。",
+        passiveTitle: "受動的な更新（ステータスライン）")
 
     static let ko = NotchAgentStrings(
         title: "AI 에이전트",
@@ -1443,7 +1528,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint가 스크립트를 업데이트하지 못했습니다. 복구 / 업데이트를 시도해 보세요.",
         integrationRepair: "복구 / 업데이트",
         lastRefreshFormat: "마지막 새로고침: %@",
-        fallbackFormat: "대체: Claude 앱 기록, 마지막 보고 %@")
+        fallbackFormat: "대체: Claude 앱 기록, 마지막 보고 %@",
+        directAvailableFormat: "Claude Code를 통한 실시간 한도. 마지막 확인: %@",
+        directReady: "Claude Code를 통한 실시간 한도. 새로고침을 눌러 확인하세요.",
+        directMissing: "Claude Code를 찾을 수 없어 한도는 수동적으로만 업데이트됩니다.",
+        directUnsupported: "이 버전의 Claude Code는 요청 시 한도를 보고할 수 없습니다.",
+        directNoPlan: "Claude Code가 Claude 요금제로 로그인되어 있지 않습니다.",
+        refreshFailed: "새로고침 실패. 마지막으로 성공한 데이터를 표시합니다.",
+        passiveTitle: "수동 업데이트(상태 줄)")
 
     static let zhHans = NotchAgentStrings(
         title: "AI 智能体",
@@ -1548,7 +1640,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint 无法更新其脚本。请尝试“修复 / 更新”。",
         integrationRepair: "修复 / 更新",
         lastRefreshFormat: "上次刷新：%@",
-        fallbackFormat: "备用：Claude 应用历史记录，最近一次报告 %@")
+        fallbackFormat: "备用：Claude 应用历史记录，最近一次报告 %@",
+        directAvailableFormat: "通过 Claude Code 获取实时额度。上次检查：%@",
+        directReady: "通过 Claude Code 获取实时额度。点按“刷新”进行检查。",
+        directMissing: "未找到 Claude Code，额度只能被动更新。",
+        directUnsupported: "此版本的 Claude Code 无法按需报告额度。",
+        directNoPlan: "Claude Code 未使用 Claude 套餐登录。",
+        refreshFailed: "刷新失败，显示的是上次成功的数据。",
+        passiveTitle: "被动更新（状态栏）")
 
     static let zhTW = NotchAgentStrings(
         title: "AI 代理",
@@ -1653,7 +1752,14 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint 無法更新其腳本。請嘗試「修復 / 更新」。",
         integrationRepair: "修復 / 更新",
         lastRefreshFormat: "上次重新整理：%@",
-        fallbackFormat: "備用：Claude App 記錄，最近一次回報 %@")
+        fallbackFormat: "備用：Claude App 記錄，最近一次回報 %@",
+        directAvailableFormat: "透過 Claude Code 取得即時額度。上次檢查：%@",
+        directReady: "透過 Claude Code 取得即時額度。按「重新整理」即可檢查。",
+        directMissing: "找不到 Claude Code，額度只能被動更新。",
+        directUnsupported: "此版本的 Claude Code 無法依需求回報額度。",
+        directNoPlan: "Claude Code 未使用 Claude 方案登入。",
+        refreshFailed: "重新整理失敗，顯示的是上次成功的資料。",
+        passiveTitle: "被動更新（狀態列）")
 
     static let zhHK = NotchAgentStrings(
         title: "AI 代理",
@@ -1758,5 +1864,12 @@ extension NotchAgentStrings {
         integrationRepairNeededDetail: "Vorssaint 無法更新其腳本。請嘗試「修復 / 更新」。",
         integrationRepair: "修復 / 更新",
         lastRefreshFormat: "上次重新整理：%@",
-        fallbackFormat: "備用：Claude App 記錄，最近一次回報 %@")
+        fallbackFormat: "備用：Claude App 記錄，最近一次回報 %@",
+        directAvailableFormat: "透過 Claude Code 取得即時額度。上次檢查：%@",
+        directReady: "透過 Claude Code 取得即時額度。按「重新整理」即可檢查。",
+        directMissing: "找不到 Claude Code，額度只能被動更新。",
+        directUnsupported: "此版本的 Claude Code 無法依需求回報額度。",
+        directNoPlan: "Claude Code 未使用 Claude 方案登入。",
+        refreshFailed: "重新整理失敗，顯示的是上次成功的資料。",
+        passiveTitle: "被動更新（狀態列）")
 }

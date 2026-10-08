@@ -32,6 +32,12 @@ final class AgentUsageService: ObservableObject {
     /// When Claude Code's status line last reported the limits; nil when it
     /// has not, or Claude is off.
     @Published private(set) var claudeReported: Date?
+    /// When Claude Code last answered a request for the plan's usage.
+    @Published private(set) var claudeProviderCheckedAt: Date?
+    /// Why the last such request gave nothing, when it is worth saying: the
+    /// limits shown are then the last good ones.
+    @Published private(set) var claudeRefreshFailure: AgentClaudeUsageFailure?
+    @Published private(set) var claudeDirectState: AgentClaudeDirectState = .untried
     /// When Claude last reported its limits, if the last refresh found no
     /// newer report than that. Told apart from a newer one by comparing with
     /// the limits shown. Nil when the refresh found something new.
@@ -96,6 +102,13 @@ final class AgentUsageService: ObservableObject {
     private var claudeProfileModified: Date?
     private var claudeAppModified: Date?
     private var claudeAppSamples: [AgentClaudeAppUsage.Sample] = []
+    private let claudeUsage: AgentClaudeUsageFetching = AgentClaudeUsageClient()
+    /// Runs the one process that asks Claude Code, apart from `queue`, which
+    /// it must never hold up.
+    private let claudeUsageQueue = DispatchQueue(label: "com.vorssaint.agent-claude-usage", qos: .userInitiated)
+    private var claudeDirect: AgentLimits?
+    private var claudeUsageRunning = false
+    private var claudeUsageBlockedUntil = Date.distantPast
     private var claudeStatusModified: Date?
     private var claudeStatusReading: AgentClaudeStatusLimits.Reading?
     private var shippedPrices: AgentPriceList?
@@ -182,6 +195,9 @@ final class AgentUsageService: ObservableObject {
         isRefreshing = false
         lastManualRefreshAt = nil
         claudeReported = nil
+        claudeProviderCheckedAt = nil
+        claudeRefreshFailure = nil
+        claudeDirectState = .untried
         claudeUnchangedAfterRefresh = nil
         snapshot = AgentUsageSnapshot()
         claudeAppChecked = nil
@@ -206,6 +222,8 @@ final class AgentUsageService: ObservableObject {
             claudeAppSamples = []
             claudeStatusModified = nil
             claudeStatusReading = nil
+            claudeDirect = nil
+            claudeUsageBlockedUntil = .distantPast
             savedMark = nil
             lastSave = .distantPast
         }
@@ -245,19 +263,89 @@ final class AgentUsageService: ObservableObject {
         isRefreshing = true
         lastManualRefreshAt = Date()
         let session = self.session
+        let asksClaude = providers.contains(.claude)
         checkCodexAccount()
         queue.async { [self] in
-            var unchanged: Date?
-            if readerSession == session {
-                let before = latestClaudeLimitsReading()
-                refreshSources(now: Date())
-                let after = latestClaudeLimitsReading()
-                unchanged = before != nil && before == after ? after : nil
+            guard readerSession == session else {
+                handOverRefresh(session: session, before: nil, outcome: .skipped)
+                return
             }
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.session == session else { return }
-                self.isRefreshing = false
-                if self.claudeUnchangedAfterRefresh != unchanged { self.claudeUnchangedAfterRefresh = unchanged }
+            let before = store.limits[.claude]?.observedAt
+            refreshSources(now: Date())
+            guard asksClaude else {
+                handOverRefresh(session: session, before: before, outcome: .skipped)
+                return
+            }
+            refreshClaudeDirect(now: Date()) { [self] outcome in
+                handOverRefresh(session: session, before: before, outcome: outcome)
+            }
+        }
+    }
+
+    /// Asks Claude Code for the plan's usage, once at a time and not while
+    /// the provider has asked for a pause, and takes the answer in as the
+    /// newest reading. A failure keeps what was shown. Runs on `queue`; the
+    /// process runs on its own queue and `completion` runs back on `queue`.
+    private func refreshClaudeDirect(now: Date, completion: @escaping (AgentClaudeDirectOutcome) -> Void) {
+        guard readerSession >= 0, enabled.contains(.claude), !claudeUsageRunning, now >= claudeUsageBlockedUntil else {
+            completion(.skipped)
+            return
+        }
+        claudeUsageRunning = true
+        let session = readerSession
+        claudeUsageQueue.async { [self] in
+            let result = claudeUsage.fetch()
+            queue.async { [self] in
+                claudeUsageRunning = false
+                guard readerSession == session else {
+                    completion(.skipped)
+                    return
+                }
+                switch result {
+                case .success(let limits):
+                    claudeDirect = limits
+                    readClaudeApp(now: Date())
+                    checkLimits()
+                    publish()
+                    completion(.succeeded(limits.observedAt))
+                case .failure(let failure):
+                    if failure == .rateLimited {
+                        claudeUsageBlockedUntil = Date().addingTimeInterval(AgentClaudeUsageClient.rateLimitCooldown)
+                    }
+                    completion(.failed(failure))
+                }
+            }
+        }
+    }
+
+    /// Ends a refresh on the main thread, with what the Claude check came to
+    /// and whether the limits shown moved. A refresh that found no newer
+    /// report says so, and the time of the last report stays its own. Runs
+    /// on `queue`.
+    private func handOverRefresh(session: Int, before: Date?, outcome: AgentClaudeDirectOutcome) {
+        let after = readerSession == session ? store.limits[.claude]?.observedAt : nil
+        var unchanged: Date?
+        if case .succeeded = outcome {} else { unchanged = before != nil && before == after ? after : nil }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.session == session else { return }
+            self.isRefreshing = false
+            if self.claudeUnchangedAfterRefresh != unchanged { self.claudeUnchangedAfterRefresh = unchanged }
+            switch outcome {
+            case .skipped: break
+            case .succeeded(let date):
+                self.claudeProviderCheckedAt = date
+                self.claudeRefreshFailure = nil
+                self.claudeDirectState = .available(date)
+            case .failed(let failure):
+                switch failure {
+                case .missing: self.claudeDirectState = .missing
+                case .unsupported: self.claudeDirectState = .unsupported
+                case .noPlan, .notSignedIn: self.claudeDirectState = .noPlan
+                case .rateLimited, .timedOut, .unreachable, .invalidResponse: self.claudeRefreshFailure = failure
+                }
+                if failure == .missing || failure == .unsupported || failure == .noPlan || failure == .notSignedIn {
+                    self.claudeRefreshFailure = nil
+                }
             }
         }
     }
@@ -291,12 +379,6 @@ final class AgentUsageService: ObservableObject {
         return claudeAppSamples.last(where: {
             claudeOrganization == nil || $0.organization == nil || $0.organization == claudeOrganization
         })?.date
-    }
-
-    /// When Claude last reported its limits, by the Claude app or by Claude
-    /// Code's status line, whichever is newer. Runs on `queue`.
-    private func latestClaudeLimitsReading() -> Date? {
-        [latestClaudeAppReading(), enabled.contains(.claude) ? claudeStatusReading?.date : nil].compactMap { $0 }.max()
     }
 
     /// Logs already known are looked at from where they stopped, all those
@@ -726,6 +808,7 @@ final class AgentUsageService: ObservableObject {
             claudeAppSamples = []
             claudeStatusModified = nil
             claudeStatusReading = nil
+            claudeDirect = nil
             return
         }
         let url = AgentClaudeAppUsage.historyURL(home: home)
@@ -748,9 +831,13 @@ final class AgentUsageService: ObservableObject {
         let app = AgentClaudeAppUsage.limits(from: claudeAppSamples, now: now, sessionStart: start,
                                              organization: claudeOrganization)
         let status = claudeStatusReading.flatMap { AgentClaudeStatusLimits.limits(from: $0, now: now) }
-        // Whichever reading is newer shows, never the other beside it.
-        if let newest = [app, status].compactMap({ $0 }).max(by: { $0.observedAt < $1.observedAt }) {
-            store.setLimits(newest)
+        let direct = claudeDirect.flatMap { AgentClaudeLimitsMerge.placed($0, at: now) }
+        // Window by window, the truer reading shows: see the merge.
+        let observations = [app.map { AgentClaudeObservation(source: .claudeDesktopHistory, limits: $0) },
+                            status.map { AgentClaudeObservation(source: .statusLine, limits: $0) },
+                            direct.map { AgentClaudeObservation(source: .directClaudeCode, limits: $0) }].compactMap { $0 }
+        if let merged = AgentClaudeLimitsMerge.merge(observations) {
+            store.setLimits(merged)
         } else if let source = store.limits[.claude]?.source, source == .claudeApp || source == .account {
             store.clearLimits(.claude)
         }

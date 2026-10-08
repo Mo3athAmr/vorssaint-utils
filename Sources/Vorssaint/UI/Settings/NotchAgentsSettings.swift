@@ -33,6 +33,8 @@ struct NotchAgentsSettingsControls: View {
     @State private var statusLineCopied = false
     /// What the link to Claude Code's status line looked like when last checked.
     @State private var integration: AgentClaudeIntegration.Report?
+    /// Whether Claude Code is on this Mac, looked for when the page opens.
+    @State private var claudeCodeFound = true
 
     private var text: NotchAgentStrings { FeatureStrings.notchAgents(l10n.language) }
     private var locale: Locale { l10n.language.formattingLocale() }
@@ -184,6 +186,8 @@ struct NotchAgentsSettingsControls: View {
         let received = usage.claudeReported ?? statusLineReceived
         let fallback = usage.claudeAppChecked ?? claudeAppFileCheck
         VStack(alignment: .leading, spacing: 6) {
+            realTimeLimits(now: now)
+            Text(text.passiveTitle).font(.callout.weight(.medium)).padding(.top, 4)
             if let state = integrationState {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: state == .connected || state == .waitingForFirstReport
@@ -223,6 +227,35 @@ struct NotchAgentsSettingsControls: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
+    /// Claude Code answers for the plan's limits when asked, with no setup:
+    /// what the last check came to, or what stands in the way.
+    @ViewBuilder private func realTimeLimits(now: Date) -> some View {
+        let (symbol, color, message) = realTimeStatus(now: now)
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol).foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(message).font(.callout)
+                if usage.claudeRefreshFailure != nil {
+                    Text(text.refreshFailed).font(.caption).foregroundStyle(.orange)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func realTimeStatus(now: Date) -> (String, Color, String) {
+        switch usage.claudeDirectState {
+        case .available(let date):
+            return ("checkmark.circle.fill", .green, text.directAvailable(AgentFormat.age(of: date, now: now, locale: locale)))
+        case .missing: return ("exclamationmark.triangle.fill", .orange, text.directMissing)
+        case .unsupported: return ("info.circle.fill", .secondary, text.directUnsupported)
+        case .noPlan: return ("info.circle.fill", .secondary, text.directNoPlan)
+        case .untried:
+            return claudeCodeFound ? ("checkmark.circle", .secondary, text.directReady)
+                : ("exclamationmark.triangle.fill", .orange, text.directMissing)
+        }
+    }
+
     private func integrationTitle(_ state: AgentClaudeIntegration.State) -> String {
         switch state {
         case .connected, .waitingForFirstReport: return text.integrationConnected
@@ -247,7 +280,9 @@ struct NotchAgentsSettingsControls: View {
             let received = AgentClaudeStatusLimits.lastReceived()
             let report = AgentClaudeIntegration.inspect(received: received, repair: repair)
             let checked = AgentClaudeAppUsage.lastCheck()
+            let found = AgentClaudeUsageClient.executable() != nil
             DispatchQueue.main.async {
+                claudeCodeFound = found
                 statusLineReceived = received
                 claudeAppFileCheck = checked
                 integration = report

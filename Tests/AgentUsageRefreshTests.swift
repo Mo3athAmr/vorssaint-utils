@@ -47,6 +47,16 @@ enum AgentUsageRefreshTests {
         var isCancelled = false
     }
 
+    /// Stands in for the process that asks Claude Code, and counts its asks.
+    final class FakeClaudeUsage: AgentClaudeUsageFetching {
+        var result: Result<AgentLimits, AgentClaudeUsageFailure> = .failure(.unsupported)
+        var asks = 0
+        func fetch() -> Result<AgentLimits, AgentClaudeUsageFailure> {
+            asks += 1
+            return result
+        }
+    }
+
     class Fixture {
         static let horizon = TimeInterval(AgentUsageSnapshot.dayCount) * 86_400
         let queue = Queue()
@@ -66,7 +76,20 @@ enum AgentUsageRefreshTests {
         var claudeOrganization: String?
         var claudeUnchangedAfterRefresh: Date?
         var lastManualRefreshAt: Date?
-        var claudeStatusURL: URL?
+        var claudeProviderCheckedAt: Date?
+        var claudeRefreshFailure: AgentClaudeUsageFailure?
+        var claudeDirectState: AgentClaudeDirectState = .untried
+        let claudeUsage = FakeClaudeUsage()
+        let claudeUsageQueue = Queue()
+        var claudeDirect: AgentLimits?
+        var claudeUsageRunning = false
+        var claudeUsageBlockedUntil = Date.distantPast
+        /// A new URL each time, as the service builds it, so a file read before is read again.
+        var claudeStatusPath: String?
+        var claudeStatusURL: URL? {
+            get { claudeStatusPath.map { URL(fileURLWithPath: $0) } }
+            set { claudeStatusPath = newValue?.path }
+        }
         var claudeStatusModified: Date?
         var claudeStatusReading: AgentClaudeStatusLimits.Reading?
         var claudeAppModified: Date?
@@ -390,6 +413,259 @@ enum AgentUsageRefreshTests {
                      "with Claude off the status file is not read")
     }
 
+    // MARK: Asking Claude Code directly
+
+    private static func reading(_ session: Double?, _ week: Double?, resets: Date, observed: Date = Date()) -> AgentLimits {
+        var windows: [AgentLimitWindow] = []
+        if let session {
+            windows.append(AgentLimitWindow(id: "claude.fh", kind: .session, minutes: 300, scope: nil, usedPercent: session, resetsAt: resets))
+        }
+        if let week {
+            windows.append(AgentLimitWindow(id: "claude.sd", kind: .weekly, minutes: 10_080, scope: nil, usedPercent: week,
+                                            resetsAt: resets.addingTimeInterval(86_400)))
+        }
+        return AgentLimits(provider: .claude, windows: windows, observedAt: observed, source: .account)
+    }
+
+    private static func directUsage(_ suite: TestSuite, folder: URL, drain: () -> Void) {
+        let now = Date()
+        let resets = Date(timeIntervalSince1970: (now.timeIntervalSince1970 + 3600).rounded())
+        let url = folder.appending(path: "direct-file/\(AgentClaudeStatusLimits.fileName)")
+        let home = folder.appending(path: "direct-home")
+        // The old case: the status line holds 25 / 22 and Claude Code answers 26 / 23.
+        status(25, 22, ago: 60, to: url, resetsIn: 3600)
+        let host = Host()
+        host.home = home
+        host.claudeStatusURL = url
+        host.readClaudeApp(now: now)
+        suite.expect(used(host) == ["claude.fh": 25, "claude.sd": 22] && host.store.limits[.claude]?.source == .account,
+                     "the status line's report shows until Claude Code is asked")
+        host.claudeUsage.result = .success(reading(26, 23, resets: resets))
+        host.refreshUsage()
+        drain()
+        suite.expect(used(host) == ["claude.fh": 26, "claude.sd": 23]
+                        && host.snapshot.limits[.claude]?.windows.map(\.remainingFraction).sorted() == [0.74, 0.77]
+                        && host.claudeUsage.asks == 1 && !host.isRefreshing,
+                     "a refresh shows what Claude Code answers, 26 and 23 used, over the status line's 25 and 22")
+        let checked = host.claudeProviderCheckedAt
+        suite.expect(checked != nil && host.claudeDirectState == .available(checked ?? now) && host.claudeRefreshFailure == nil
+                        && host.claudeUnchangedAfterRefresh == nil
+                        && host.store.limits[.claude]?.observedAt == checked,
+                     "the check is dated when Claude Code answered, and nothing is reported old")
+
+        // A passive report cannot take a newer one's place.
+        status(25, 22, ago: 10, to: url, resetsIn: 3600, modified: Date().addingTimeInterval(5))
+        host.readClaudeApp(now: Date())
+        suite.expect(used(host) == ["claude.fh": 26, "claude.sd": 23],
+                     "an older, lower status line report does not take the place of Claude Code's answer")
+        // A later, higher one moves it on.
+        status(27, 23, ago: 1, to: url, resetsIn: 3600, modified: Date().addingTimeInterval(10))
+        host.readClaudeApp(now: Date())
+        suite.expect(used(host) == ["claude.fh": 27, "claude.sd": 23],
+                     "a later report of the same period with more used moves the answer on")
+        // A new period starts over, lower.
+        host.claudeDirect = reading(80, 50, resets: Date().addingTimeInterval(600))
+        status(1, 51, ago: 1, to: url, resetsIn: 600 + 18_000, modified: Date().addingTimeInterval(15))
+        host.readClaudeApp(now: Date())
+        suite.expect(used(host)["claude.fh"] == 1,
+                     "a report of a later renewal time is a new period, accepted though it is lower")
+        // The reverse: an older period's report never replaces a newer period's answer.
+        host.claudeDirect = reading(2, 51, resets: Date().addingTimeInterval(18_600))
+        status(90, 51, ago: 1, to: url, resetsIn: 600, modified: Date().addingTimeInterval(20))
+        host.readClaudeApp(now: Date())
+        suite.expect(used(host)["claude.fh"] == 2,
+                     "a report of an earlier period never replaces a newer period's answer, however high")
+
+        // Failing, timing out or being limited keeps what was shown, with no new time.
+        let kept = Host()
+        kept.home = home
+        kept.claudeStatusURL = url
+        kept.claudeUsage.result = .success(reading(26, 23, resets: resets))
+        kept.refreshUsage()
+        drain()
+        let answered = kept.store.limits[.claude]?.observedAt
+        let good = used(kept)
+        kept.claudeUsage.result = .failure(.timedOut)
+        kept.refreshUsage()
+        drain()
+        suite.expect(used(kept) == good && kept.store.limits[.claude]?.observedAt == answered
+                        && kept.claudeRefreshFailure == .timedOut && kept.claudeProviderCheckedAt == answered
+                        && !kept.isRefreshing,
+                     "a timeout keeps the last good limits and their time, says the refresh failed, and ends the wait")
+        kept.claudeUsage.result = .failure(.rateLimited)
+        kept.refreshUsage()
+        drain()
+        let asked = kept.claudeUsage.asks
+        suite.expect(kept.claudeRefreshFailure == .rateLimited && kept.claudeUsageBlockedUntil > Date(),
+                     "a provider limit is noted, with a pause before it is asked again")
+        kept.claudeUsage.result = .success(reading(30, 30, resets: resets))
+        kept.refreshUsage()
+        drain()
+        suite.expect(kept.claudeUsage.asks == asked && used(kept) == good && kept.claudeRefreshFailure == .rateLimited,
+                     "during the pause a refresh does not ask again, and the limits stay")
+        kept.claudeUsageBlockedUntil = .distantPast
+        kept.refreshUsage()
+        drain()
+        suite.expect(kept.claudeUsage.asks == asked + 1 && used(kept) == ["claude.fh": 30, "claude.sd": 30]
+                        && kept.claudeRefreshFailure == nil,
+                     "after the pause the next refresh asks, and a good answer clears the failure")
+
+        // Not answered at all: the other sources stand, and the state says why.
+        let plain = Host()
+        plain.home = home
+        plain.claudeStatusURL = url
+        plain.claudeUsage.result = .failure(.unsupported)
+        plain.refreshUsage()
+        drain()
+        suite.expect(plain.claudeDirectState == .unsupported && plain.claudeRefreshFailure == nil
+                        && plain.store.limits[.claude] != nil,
+                     "a Claude Code that does not answer leaves the status line's limits showing, and says so")
+        for (failure, state) in [(AgentClaudeUsageFailure.missing, AgentClaudeDirectState.missing),
+                                 (.noPlan, .noPlan), (.notSignedIn, .noPlan)] {
+            plain.claudeUsage.result = .failure(failure)
+            plain.refreshUsage()
+            drain()
+            suite.expect(plain.claudeDirectState == state, "\(failure) reads as \(state)")
+        }
+
+        // Clicks while one is going ask once; Claude off asks nobody.
+        let rapid = Host()
+        rapid.home = home
+        rapid.claudeUsage.result = .success(reading(26, 23, resets: resets))
+        rapid.refreshUsage()
+        rapid.refreshUsage()
+        rapid.refreshUsage()
+        drain()
+        suite.expect(rapid.claudeUsage.asks == 1, "three clicks in a row ask Claude Code once")
+        rapid.claudeUsageRunning = true
+        rapid.refreshUsage()
+        drain()
+        suite.expect(rapid.claudeUsage.asks == 1 && !rapid.isRefreshing,
+                     "while a request is out no second process is started, and the refresh still ends")
+        let off = Host()
+        off.enabled = []
+        off.providers = [.codex]
+        off.refreshUsage()
+        drain()
+        suite.expect(off.claudeUsage.asks == 0 && off.claudeDirect == nil, "with Claude off nobody is asked")
+
+        // The answer touches nothing of the work going on.
+        let liveLog = folder.appending(path: "direct-live/projects/live/live.jsonl")
+        let began = Date().addingTimeInterval(-40)
+        try? FileManager.default.createDirectory(at: liveLog.deletingLastPathComponent(), withIntermediateDirectories: true)
+        append([user(at: began), assistant("d1", output: 50, stop: "tool_use", at: began.addingTimeInterval(5))], to: liveLog)
+        let working = Host()
+        working.home = folder.appending(path: "direct-live")
+        working.watchedRoots = []
+        let liveRoot = AgentLogRoot(provider: .claude, url: folder.appending(path: "direct-live/projects"))
+        working.watchedRoots = [liveRoot]
+        working.read(liveLog.path, provider: .claude)
+        working.publish()
+        let turns = working.store.turns
+        let records = working.store.records
+        working.claudeUsage.result = .success(reading(26, 23, resets: resets))
+        working.publications.removeAll()
+        working.refreshUsage()
+        drain()
+        suite.expect(working.store.turns == turns && working.store.records == records && !turns.isEmpty
+                        && working.publications.allSatisfy { $0.live.count == 1 } && !working.publications.isEmpty,
+                     "asking Claude Code leaves the working turn, its start and the local usage as they were, with no empty moment")
+    }
+
+    // MARK: The process that asks
+
+    private static func claudeProcess(_ suite: TestSuite, folder: URL) {
+        let work = folder.appending(path: "fake-claude")
+        try? FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+        let rates = #"{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":26,"resets_at":"2026-10-09T00:19:59.673537+00:00"},"seven_day":{"utilization":23,"resets_at":"2026-10-13T01:59:59.673555+00:00"},"seven_day_opus":null,"extra_usage":{"utilization":null},"iguana_necktie":{"utilization":100,"resets_at":"2026-11-05T07:59:00+00:00"}},"subscription_type":"max"}"#
+        func script(_ name: String, _ body: String) -> AgentClaudeUsageClient {
+            let dir = work.appending(path: name)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let url = dir.appending(path: "claude")
+            try? Data(("#!/bin/sh\necho $$ > \"$FAKE_DIR/pid\"\n" + body + "\n").utf8).write(to: url)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
+            var environment = AgentClaudeUsageClient.environment()
+            environment["FAKE_DIR"] = dir.path
+            return AgentClaudeUsageClient(executable: { url }, environment: { environment }, timeout: 3)
+        }
+        let responder = """
+        while IFS= read -r line; do
+          printf '%s\\n' "$line" >> "$FAKE_DIR/stdin.log"
+          case "$line" in *get_usage*)
+            id=$(printf '%s' "$line" | /usr/bin/sed -E 's/.*"request_id":"([^"]*)".*/\\1/')
+            printf '{"type":"system","subtype":"noise"}\\nnot json at all\\n'
+            printf '{"type":"control_response","response":{"subtype":"success","request_id":"other","response":{}}}\\n'
+            printf '{"type":"control_response","response":{"subtype":"succ'
+            sleep 0.1
+            printf 'ess","request_id":"%s","response":%s}}\\n' "$id" '\(rates)'
+          ;; esac
+        done
+        """
+        let good = script("good", responder)
+        let began = Date()
+        let result = good.fetch()
+        let elapsed = Date().timeIntervalSince(began)
+        let dir = work.appending(path: "good")
+        let sent = (try? String(contentsOf: dir.appending(path: "stdin.log"), encoding: .utf8))?
+            .split(separator: "\n").map(String.init) ?? []
+        guard case .success(let limits) = result else {
+            suite.expect(false, "the process answers a usage request: \(result)")
+            return
+        }
+        let five = limits.windows.first { $0.id == "claude.fh" }
+        let week = limits.windows.first { $0.id == "claude.sd" }
+        suite.expect(five?.usedPercent == 26 && week?.usedPercent == 23 && limits.windows.count == 2
+                        && limits.source == .account && limits.provider == .claude
+                        && abs((five?.resetsAt ?? .distantPast).timeIntervalSince1970 - 1_791_505_199.673) < 0.01
+                        && abs((week?.resetsAt ?? .distantPast).timeIntervalSince1970 - 1_791_856_799.673) < 0.01
+                        && abs(limits.observedAt.timeIntervalSinceNow) < 5 && elapsed < 2.5,
+                     "the answer, split across reads and among other lines, gives the session and the week with the provider's times")
+        suite.expect(sent.count == 1 && sent[0].contains("\"type\":\"control_request\"") && sent[0].contains("get_usage")
+                        && !sent.contains { $0.contains("\"type\":\"user\"") || $0.contains("\"message\"") },
+                     "one control request and no message is sent: no prompt, no model turn")
+        let pid = (try? String(contentsOf: dir.appending(path: "pid"), encoding: .utf8)).flatMap { Int32($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        Thread.sleep(forTimeInterval: 0.6)
+        suite.expect(pid != nil && kill(pid ?? 0, 0) != 0, "the process is gone once the answer is in")
+
+        func failure(_ name: String, _ body: String) -> AgentClaudeUsageFailure? {
+            if case .failure(let value) = script(name, body).fetch() { return value }
+            return nil
+        }
+        func reply(_ response: String) -> String {
+            """
+            while IFS= read -r line; do
+              id=$(printf '%s' "$line" | /usr/bin/sed -E 's/.*"request_id":"([^"]*)".*/\\1/')
+              printf '{"type":"control_response","response":%s}\\n' "$(printf '%s' '\(response)' | /usr/bin/sed "s/@ID@/$id/")"
+            done
+            """
+        }
+        suite.expect(failure("unsupported", reply(#"{"subtype":"error","request_id":"@ID@","error":"Unsupported control request subtype: get_usage"}"#)) == .unsupported
+                        && failure("limited", reply(#"{"subtype":"error","request_id":"@ID@","error":"Request failed with status 429"}"#)) == .rateLimited
+                        && failure("signedout", reply(#"{"subtype":"error","request_id":"@ID@","error":"Not logged in"}"#)) == .notSignedIn
+                        && failure("noplan", reply(#"{"subtype":"success","request_id":"@ID@","response":{"rate_limits_available":false}}"#)) == .noPlan
+                        && failure("odd", reply(#"{"subtype":"success","request_id":"@ID@","response":{"rate_limits_available":true,"rate_limits":{"five_hour":{"utilization":"lots"}}}}"#)) == .invalidResponse
+                        && failure("shape", reply(#"{"subtype":"success","request_id":"@ID@","response":{"unexpected":1}}"#)) == .invalidResponse,
+                     "an error saying unsupported, rate limited or signed out, no plan, and an answer of another shape each read as their own failure")
+        suite.expect(failure("exits", "exit 1") == .unreachable, "a process that ends without answering reads as unreachable")
+        let slowBegan = Date()
+        let slow = failure("silent", "sleep 30")
+        let waited = Date().timeIntervalSince(slowBegan)
+        suite.expect(slow == .timedOut && waited > 2.5 && waited < 5, "a process that never answers is given up on at its deadline")
+        let slowPid = (try? String(contentsOf: work.appending(path: "silent/pid"), encoding: .utf8)).flatMap { Int32($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        Thread.sleep(forTimeInterval: 3.5)
+        suite.expect(slowPid != nil && kill(slowPid ?? 0, 0) != 0, "and the process is stopped")
+        suite.expect(AgentClaudeUsageClient(executable: { nil }).fetch() == .failure(.missing)
+                        || { if case .failure(.missing) = AgentClaudeUsageClient(executable: { nil }).fetch() { return true } else { return false } }(),
+                     "without Claude Code on the Mac the failure is missing")
+        suite.expect(AgentClaudeUsageClient.arguments.contains("--safe-mode") && AgentClaudeUsageClient.arguments.contains("--no-session-persistence")
+                        && !AgentClaudeUsageClient.arguments.contains("--bare") && !AgentClaudeUsageClient.arguments.contains("--continue")
+                        && !AgentClaudeUsageClient.arguments.contains("--resume"),
+                     "the process is started without customizations, a saved session, or a conversation of the person's")
+        suite.expect(AgentClaudeUsageClient.environment(base: ["PATH": "/x", "ANTHROPIC_API_KEY": "kept"])["ANTHROPIC_API_KEY"] == "kept"
+                        && AgentClaudeUsageClient.environment(base: [:])["DISABLE_AUTOUPDATER"] == "1",
+                     "how Claude Code signs in is left as the person has it, and it is kept from updating itself")
+    }
+
     static func run(_ suite: TestSuite) {
         func drain() {
             var reached = false
@@ -645,6 +921,8 @@ enum AgentUsageRefreshTests {
 
 
         statusLine(suite, folder: folder, drain: drain)
+        directUsage(suite, folder: folder, drain: drain)
+        claudeProcess(suite, folder: folder)
         suite.expect(limited.priceDownloads == 0 && limited.paused == false,
                      "no refresh in any of these downloads a price list")
     }

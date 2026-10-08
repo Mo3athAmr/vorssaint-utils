@@ -84,7 +84,8 @@ struct NotchAgentsView: View {
                                      display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining, text: text,
                                      appStale: provider == .claude && AgentClaudeAppUsage.isStillOld(
                                          foundOld: usage.claudeUnchangedAfterRefresh,
-                                         latest: snapshot.limits[.claude]?.observedAt))
+                                         latest: snapshot.limits[.claude]?.observedAt),
+                                     refreshFailed: provider == .claude && usage.claudeRefreshFailure != nil)
             }
         case .spend:
             NotchAgentSpendCard(snapshot: snapshot, providers: providers, period: $period, text: text)
@@ -133,6 +134,8 @@ private struct NotchAgentLimitsCard: View {
     /// old: it has reported nothing newer. True only while that same reading
     /// is the latest, so a newer one clears it without another refresh.
     var appStale = false
+    /// Asking Claude Code for the limits failed, so these are the last good ones.
+    var refreshFailed = false
     @Environment(\.locale) private var locale
 
     /// A reading Claude reported a while ago, through its app or its status
@@ -183,11 +186,11 @@ private struct NotchAgentLimitsCard: View {
                 Text(text.updated(observed.formatted(.relative(presentation: .named, unitsStyle: .abbreviated)
                     .locale(locale))))
                     .lineLimit(1)
-                if appStale { Image(systemName: "exclamationmark.circle") }
+                if appStale || refreshFailed { Image(systemName: "exclamationmark.circle") }
             }
             .font(.system(size: 9.5))
             .foregroundStyle(.tertiary)
-            .help(appStale ? text.claudeRefreshStale : "")
+            .help(refreshFailed ? text.refreshFailed : (appStale ? text.claudeRefreshStale : ""))
         }
     }
 
@@ -256,7 +259,7 @@ private struct NotchAgentLimitsCard: View {
         if let observed = snapshot.limits[provider]?.observedAt, now.timeIntervalSince(observed) > 600 {
             parts.append(text.updated(observed.formatted(.relative(presentation: .named).locale(locale))))
         }
-        if appStale { parts.append(text.claudeRefreshStale) }
+        if refreshFailed { parts.append(text.refreshFailed) } else if appStale { parts.append(text.claudeRefreshStale) }
         return parts.joined(separator: " · ")
     }
 

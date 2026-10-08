@@ -1502,11 +1502,11 @@ def main():
                     .replace("private func", "func", 1)
                     .replace("func read(", "@discardableResult func read(", 1)
                     .replace("func pollOpenLogs(", "@discardableResult func pollOpenLogs(", 1)
-                    for prefix in ["    func refreshUsage(", "    private func refreshSources(",
+                    for prefix in ["    func refreshUsage(", "    private func refreshClaudeDirect(",
+                                   "    private func handOverRefresh(", "    private func refreshSources(",
                                    "    private func catchUpLogs(", "    private func pollOpenLogs(",
                                    "    private func read(", "    private func readClaudeApp(",
                                    "    private func latestClaudeAppReading(",
-                                   "    private func latestClaudeLimitsReading(",
                                    "    private func readClaudeStatus(",
                                    "    private func checkLimits("])
           + "}\n}\n")

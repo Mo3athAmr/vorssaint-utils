@@ -109,15 +109,22 @@ enum AgentClaudeStatusLimits {
 
     """
 
-    /// Writes the script into `folder`, owner-only and executable, and returns
-    /// the lines to add to Claude Code's settings: its `statusLine`. Nil when
-    /// the script cannot be written. Only on the person's request.
-    static func install(in folder: URL? = PrivateFileStore.containerURL) -> String? {
-        guard let folder, PrivateFileStore.createDirectory(at: folder, container: folder) else { return nil }
+    /// Writes the script into `folder` as a whole, owner-only and executable,
+    /// and returns its URL; nil when it cannot be written.
+    static func writeScript(in folder: URL) -> URL? {
+        guard PrivateFileStore.createDirectory(at: folder, container: folder) else { return nil }
         let url = folder.appending(path: scriptName, directoryHint: .notDirectory)
         guard PrivateFileStore.write(Data(script.utf8), to: url),
               (try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)) != nil
         else { return nil }
+        return url
+    }
+
+    /// Writes the script into `folder` and returns the lines to add to Claude
+    /// Code's settings: its `statusLine`. Nil when the script cannot be
+    /// written. Only on the person's request.
+    static func install(in folder: URL? = PrivateFileStore.containerURL) -> String? {
+        guard let folder, let url = writeScript(in: folder) else { return nil }
         let command = "'" + url.path.replacingOccurrences(of: "'", with: "'\\''") + "'"
         let setting: [String: Any] = ["statusLine": ["type": "command", "command": command]]
         guard let data = try? JSONSerialization.data(withJSONObject: setting, options: [.prettyPrinted, .sortedKeys,

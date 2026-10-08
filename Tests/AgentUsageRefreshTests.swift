@@ -65,6 +65,7 @@ enum AgentUsageRefreshTests {
         var claudePlan: AgentPlan?
         var claudeOrganization: String?
         var claudeUnchangedAfterRefresh: Date?
+        var lastManualRefreshAt: Date?
         var claudeStatusURL: URL?
         var claudeStatusModified: Date?
         var claudeStatusReading: AgentClaudeStatusLimits.Reading?
@@ -247,6 +248,37 @@ enum AgentUsageRefreshTests {
         waiting.readClaudeApp(now: Date())
         suite.expect(used(waiting) == ["claude.fh": 26, "claude.sd": 24],
                      "the ordinary look notices a newer report without a refresh")
+
+
+        // The time of the person's refresh is its own: it never stands for a report.
+        let stamped = Host()
+        stamped.home = emptyHome
+        stamped.claudeStatusURL = quiet
+        status(40, 41, ago: 3600, to: quiet)
+        stamped.readClaudeApp(now: now)
+        let reportedThen = stamped.store.limits[.claude]?.observedAt
+        suite.expect(stamped.lastManualRefreshAt == nil, "before any refresh there is no refresh time")
+        let pressed = Date()
+        stamped.refreshUsage()
+        suite.expect(stamped.lastManualRefreshAt.map { $0 >= pressed && $0.timeIntervalSince(pressed) < 2 } == true,
+                     "pressing refresh sets the refresh time at once")
+        drain()
+        suite.expect(stamped.store.limits[.claude]?.observedAt == reportedThen
+                        && abs(Date().timeIntervalSince(reportedThen ?? Date()) - 3600) < 5,
+                     "the report keeps its own time, an hour old, beside the refresh time")
+        let refreshedAt = stamped.lastManualRefreshAt
+        status(42, 43, ago: 1, to: quiet, modified: Date().addingTimeInterval(3))
+        stamped.readClaudeApp(now: Date())
+        suite.expect(stamped.lastManualRefreshAt == refreshedAt && used(stamped) == ["claude.fh": 42, "claude.sd": 43]
+                        && abs(Date().timeIntervalSince(stamped.store.limits[.claude]?.observedAt ?? .distantPast)) < 5,
+                     "a new report moves the received time and leaves the refresh time where it was")
+        let pressedAt = refreshedAt ?? now
+        let english = Locale(identifier: "en_US")
+        let age53 = AgentFormat.age(of: pressedAt, now: pressedAt.addingTimeInterval(53), locale: english)
+        let age4 = AgentFormat.age(of: pressedAt, now: pressedAt.addingTimeInterval(240), locale: english)
+        let ageNow = AgentFormat.age(of: pressedAt, now: pressedAt, locale: english)
+        suite.expect(age53.contains("53") && age4.contains("4") && age4.contains("min") && ageNow.lowercased().contains("now"),
+                     "the age reads in seconds, then minutes, as the clock moves on, with no timer of its own (\(ageNow) / \(age53) / \(age4))")
 
         // The script run again without a new report keeps the report's time.
         func aging(_ seconds: Double) {

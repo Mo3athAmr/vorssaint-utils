@@ -28,6 +28,7 @@ enum NotchAgentTests {
         reading(suite)
         AgentUsageReadTests.run(suite)
         AgentUsageRefreshTests.run(suite)
+        AgentClaudeIntegrationTests.run(suite)
         AgentUsageArchiveTests.run(suite)
         AgentUsageArchiveSettleTests.run(suite)
         AgentUsageArchiveSaveTests.run(suite)

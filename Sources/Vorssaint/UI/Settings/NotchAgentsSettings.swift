@@ -26,12 +26,13 @@ struct NotchAgentsSettingsControls: View {
     @AppStorage(DefaultsKey.notchAgentsPriceUpdates) private var priceUpdates = true
     @State private var dragging: NotchAgentCard?
     @State private var roots: [AgentProvider: Bool] = [:]
-    @State private var claudeApp: URL?
     /// Read from the file while the section is off and the service is idle.
     @State private var claudeAppFileCheck: Date?
     /// When Claude Code's status line last saved its limits; nil if it never has.
     @State private var statusLineReceived: Date?
     @State private var statusLineCopied = false
+    /// What the link to Claude Code's status line looked like when last checked.
+    @State private var integration: AgentClaudeIntegration.Report?
 
     private var text: NotchAgentStrings { FeatureStrings.notchAgents(l10n.language) }
     private var locale: Locale { l10n.language.formattingLocale() }
@@ -138,22 +139,24 @@ struct NotchAgentsSettingsControls: View {
 
             if claude {
                 Divider()
-                Text(text.claudeLimitsTitle).font(.subheadline.weight(.medium))
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    claudeLimitsStatus(now: context.date)
+                Text(text.integrationTitle).font(.subheadline.weight(.medium))
+                // Ages move on the page's own clock, only while it is open.
+                TimelineView(.periodic(from: .now, by: 10)) { context in
+                    claudeIntegration(now: context.date)
                 }
-                Text(text.claudeLimitsPrivacy).font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                statusLineSetup
             }
         }
         .toggleStyle(.switch)
         .onAppear {
             findRoots()
             // An agent turned off is not read at all, not even for its status.
-            if claude { findClaudeApp() }
+            if claude { refreshIntegration() }
         }
-        .onChange(of: claude) { _, on in if on { findClaudeApp() } }
+        .onChange(of: claude) { _, on in if on { refreshIntegration() } }
+        // Back from adding the setting to Claude Code's file.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            if claude { refreshIntegration() }
+        }
         // Cards and agents set the page's height, and the live reading the
         // closed island's width, which the island follows.
         .onChange(of: [cardOrder, hiddenCards, String(claude), String(codex), String(opencode), String(copilot),
@@ -167,53 +170,94 @@ struct NotchAgentsSettingsControls: View {
         return text.priceUpdatesHint + " " + text.pricesFrom(AgentFormat.day(day, locale: locale))
     }
 
-    /// Where Claude's plan limits stand, and the one step that brings them
-    /// here when they are missing or old.
-    @ViewBuilder private func claudeLimitsStatus(now: Date) -> some View {
-        let checked = usage.claudeAppChecked ?? claudeAppFileCheck
-        HStack(alignment: .top, spacing: 10) {
-            if let checked, now.timeIntervalSince(checked) < AgentClaudeAppUsage.freshness {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                Text(text.claudeLimitsCurrent(relative(checked, now: now)))
-                Spacer(minLength: 0)
-            } else if claudeApp == nil, checked == nil {
-                Image(systemName: "info.circle.fill").foregroundStyle(.secondary)
-                Text(text.claudeLimitsNoApp)
-                Spacer(minLength: 8)
-                Button(text.getClaude) { NSWorkspace.shared.open(AgentClaudeAppUsage.downloadURL) }
-            } else {
-                Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
-                VStack(alignment: .leading, spacing: 4) {
-                    if let checked { Text(text.claudeLimitsStale(relative(checked, now: now))) }
-                    Text(text.claudeLimitsMenuBar)
-                }
-                Spacer(minLength: 8)
-                if let claudeApp {
-                    Button(text.openClaude) {
-                        NSWorkspace.shared.openApplication(at: claudeApp, configuration: NSWorkspace.OpenConfiguration())
+    /// The state shown: a first report that arrives while the page is open
+    /// ends the wait without another look at the settings.
+    private var integrationState: AgentClaudeIntegration.State? {
+        guard let state = integration?.state else { return nil }
+        let received = usage.claudeReported ?? statusLineReceived
+        return state == .waitingForFirstReport && received != nil ? .connected : state
+    }
+
+    /// Where the link to Claude Code stands. Its status line is where the
+    /// limits come from; the Claude app's history only stands in for it.
+    @ViewBuilder private func claudeIntegration(now: Date) -> some View {
+        let received = usage.claudeReported ?? statusLineReceived
+        let fallback = usage.claudeAppChecked ?? claudeAppFileCheck
+        VStack(alignment: .leading, spacing: 6) {
+            if let state = integrationState {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: state == .connected || state == .waitingForFirstReport
+                          ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(state == .connected || state == .waitingForFirstReport ? Color.green : Color.orange)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(integrationTitle(state)).font(.callout.weight(.medium))
+                        Text(integrationDetail(state)).font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    if state == .setupRequired {
+                        Button(text.statusLineCopy) { copyStatusLineSetup() }
+                    } else {
+                        Button(text.integrationRepair) { repairIntegration() }
                     }
                 }
+                if state == .connected || state == .waitingForFirstReport {
+                    VStack(alignment: .leading, spacing: 2) {
+                        if let received {
+                            Text(text.statusLineReceived(AgentFormat.age(of: received, now: now, locale: locale)))
+                                .help(text.statusLineHelp)
+                        }
+                        Text(text.lastRefresh(usage.lastManualRefreshAt.map { AgentFormat.age(of: $0, now: now, locale: locale) } ?? "–"))
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            if let fallback {
+                Text(text.fallback(AgentFormat.age(of: fallback, now: now, locale: locale)))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
         }
         .font(.callout)
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Claude Code's own way to share its limits: a status line script this
-    /// app writes when asked, whose setting the person adds themselves.
-    @ViewBuilder private var statusLineSetup: some View {
-        Text(text.statusLineTitle).font(.subheadline.weight(.medium)).padding(.top, 4)
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(statusLineReceived.map { text.statusLineReceived(relative($0, now: Date())) } ?? text.statusLineNone)
-                .font(.callout)
-                .help(text.statusLineHelp)
-            Spacer(minLength: 8)
-            Button(text.statusLineCopy) { copyStatusLineSetup() }
+    private func integrationTitle(_ state: AgentClaudeIntegration.State) -> String {
+        switch state {
+        case .connected, .waitingForFirstReport: return text.integrationConnected
+        case .setupRequired: return text.integrationSetupRequired
+        case .repairRequired: return text.integrationRepairNeeded
         }
-        Text(statusLineCopied ? text.statusLineCopied : text.statusLineHint)
-            .font(.caption).foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
     }
+
+    private func integrationDetail(_ state: AgentClaudeIntegration.State) -> String {
+        switch state {
+        case .connected: return text.integrationConnectedDetail
+        case .waitingForFirstReport: return text.integrationWaitingDetail
+        case .setupRequired: return statusLineCopied ? text.statusLineCopied : text.statusLineHint
+        case .repairRequired: return text.integrationRepairNeededDetail
+        }
+    }
+
+    /// Looks at the link again: the script is brought up to date when it is
+    /// in use, and Claude Code's settings are only read. Off the main thread.
+    private func refreshIntegration(repair: Bool = false) {
+        DispatchQueue.global(qos: .utility).async {
+            let received = AgentClaudeStatusLimits.lastReceived()
+            let report = AgentClaudeIntegration.inspect(received: received, repair: repair)
+            let checked = AgentClaudeAppUsage.lastCheck()
+            DispatchQueue.main.async {
+                statusLineReceived = received
+                claudeAppFileCheck = checked
+                integration = report
+            }
+        }
+    }
+
+    /// Writes the script again and checks the settings; it never adds the
+    /// setting itself, so a link that is not set up says so.
+    private func repairIntegration() { refreshIntegration(repair: true) }
 
     /// Writes the script and puts the setting on the clipboard, off the main thread.
     private func copyStatusLineSetup() {
@@ -224,24 +268,6 @@ struct NotchAgentsSettingsControls: View {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(setting, forType: .string)
                 statusLineCopied = true
-            }
-        }
-    }
-
-    private func relative(_ date: Date, now: Date) -> String {
-        min(date, now).formatted(.relative(presentation: .named).locale(locale))
-    }
-
-    /// The app and the file are looked up when the page opens, off the main
-    /// thread for the file, never on every draw.
-    private func findClaudeApp() {
-        claudeApp = NSWorkspace.shared.urlForApplication(withBundleIdentifier: AgentClaudeAppUsage.bundleIdentifier)
-        DispatchQueue.global(qos: .utility).async {
-            let checked = AgentClaudeAppUsage.lastCheck()
-            let received = AgentClaudeStatusLimits.lastReceived()
-            DispatchQueue.main.async {
-                claudeAppFileCheck = checked
-                statusLineReceived = received
             }
         }
     }

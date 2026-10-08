@@ -275,6 +275,16 @@ enum NotchAgentSupport {
 /// Numbers in the reader's region; costs in US dollars, the currency both
 /// providers list their prices in.
 enum AgentFormat {
+    /// How long ago, in seconds up to an hour and then minutes and hours, as
+    /// the system words it in the reader's language.
+    static func age(of date: Date, now: Date, locale: Locale = .autoupdatingCurrent) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = locale
+        formatter.unitsStyle = .short
+        formatter.dateTimeStyle = .named
+        return formatter.localizedString(for: min(date, now), relativeTo: now)
+    }
+
     static func cost(_ value: Double, locale: Locale = .autoupdatingCurrent) -> String {
         guard value.isFinite else { return "$0" }
         let magnitude = abs(value)

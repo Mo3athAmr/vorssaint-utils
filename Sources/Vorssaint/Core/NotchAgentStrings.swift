@@ -69,14 +69,6 @@ struct NotchAgentStrings {
     let budget: String
     let off: String
     let updatedFormat: String
-    let claudeLimitsTitle: String
-    let claudeLimitsCurrentFormat: String
-    let claudeLimitsStaleFormat: String
-    let claudeLimitsMenuBar: String
-    let claudeLimitsNoApp: String
-    let claudeLimitsPrivacy: String
-    let openClaude: String
-    let getClaude: String
     let priceUpdates: String
     let priceUpdatesHint: String
     let pricesFromFormat: String
@@ -100,13 +92,21 @@ struct NotchAgentStrings {
     let refreshTitle: String
     let refreshHelp: String
     let claudeRefreshStale: String
-    let statusLineTitle: String
     let statusLineHint: String
     let statusLineReceivedFormat: String
-    let statusLineNone: String
     let statusLineCopy: String
     let statusLineCopied: String
     let statusLineHelp: String
+    let integrationTitle: String
+    let integrationConnected: String
+    let integrationConnectedDetail: String
+    let integrationWaitingDetail: String
+    let integrationSetupRequired: String
+    let integrationRepairNeeded: String
+    let integrationRepairNeededDetail: String
+    let integrationRepair: String
+    let lastRefreshFormat: String
+    let fallbackFormat: String
 
     func tokens(_ count: String) -> String { String(format: tokensFormat, count) }
     func cached(_ share: String) -> String { String(format: cachedFormat, share) }
@@ -117,11 +117,11 @@ struct NotchAgentStrings {
     func left(_ share: String) -> String { String(format: leftFormat, share) }
     func usedShare(_ share: String) -> String { String(format: usedFormat, share) }
     func updated(_ when: String) -> String { String(format: updatedFormat, when) }
-    func claudeLimitsCurrent(_ when: String) -> String { String(format: claudeLimitsCurrentFormat, when) }
-    func claudeLimitsStale(_ when: String) -> String { String(format: claudeLimitsStaleFormat, when) }
     func pricesFrom(_ day: String) -> String { String(format: pricesFromFormat, day) }
     func resetsExpiry(_ when: String) -> String { String(format: resetsExpiryFormat, when) }
     func statusLineReceived(_ when: String) -> String { String(format: statusLineReceivedFormat, when) }
+    func lastRefresh(_ when: String) -> String { String(format: lastRefreshFormat, when) }
+    func fallback(_ when: String) -> String { String(format: fallbackFormat, when) }
 
     func period(_ period: AgentPeriod) -> String {
         switch period {
@@ -251,14 +251,6 @@ extension NotchAgentStrings {
         budget: "Daily API value budget",
         off: "Off",
         updatedFormat: "Updated %@",
-        claudeLimitsTitle: "Claude plan limits",
-        claudeLimitsCurrentFormat: "Read from the Claude app, updated %@",
-        claudeLimitsStaleFormat: "The Claude app last checked them %@.",
-        claudeLimitsMenuBar: "Claude checks your limits only while its icon is in the menu bar. Turn the icon on in the Claude app settings, and your limits appear here within minutes.",
-        claudeLimitsNoApp: "Plan limits come from the Claude app, which is not on this Mac. Until then, the 5-hour session is estimated from Claude Code activity.",
-        claudeLimitsPrivacy: "Vorssaint reads the percentages the Claude app saves on this Mac. No sign-in is used and nothing is sent.",
-        openClaude: "Open Claude",
-        getClaude: "Get the Claude app",
         priceUpdates: "Keep prices up to date",
         priceUpdatesHint: "Downloads the public price list from GitHub once a day, so new models get an API value without an app update. Nothing about your usage is sent.",
         pricesFromFormat: "Price list of %@",
@@ -282,13 +274,21 @@ extension NotchAgentStrings {
         refreshTitle: "Refresh AI usage",
         refreshHelp: "Refresh usage, spending and limits. Live sessions update automatically.",
         claudeRefreshStale: "No newer Claude limit report yet. Limits update when Claude Code reports new usage.",
-        statusLineTitle: "Live limits from Claude Code",
         statusLineHint: "Optional. Claude Code can pass your plan limits to Vorssaint through its status line, so they stay current while you use it. Nothing is sent: a small script saves the percentages in this app’s folder. Copy the setup and add it to ~/.claude/settings.json.",
         statusLineReceivedFormat: "Last received %@.",
-        statusLineNone: "Nothing received yet",
         statusLineCopy: "Copy setup",
         statusLineCopied: "Copied. Add it to ~/.claude/settings.json.",
-        statusLineHelp: "Limits come from the latest report Claude Code sends to its status line. Refresh re-checks that report; it cannot make Claude Code send a new one.")
+        statusLineHelp: "Limits come from the latest report Claude Code sends to its status line. Refresh re-checks that report; it cannot make Claude Code send a new one.",
+        integrationTitle: "Claude Code integration",
+        integrationConnected: "Connected",
+        integrationConnectedDetail: "Claude Code reports your plan limits locally through its status line. Vorssaint does not access your Claude credentials.",
+        integrationWaitingDetail: "Waiting for Claude Code to report limits. Send a message in Claude Code to receive the first report.",
+        integrationSetupRequired: "Setup required",
+        integrationRepairNeeded: "Repair needed",
+        integrationRepairNeededDetail: "Vorssaint could not update its script. Try Repair / Update.",
+        integrationRepair: "Repair / Update",
+        lastRefreshFormat: "Last refresh: %@",
+        fallbackFormat: "Fallback: Claude app history, last report %@")
 
     static let uk = NotchAgentStrings(
         title: "ШІ-агенти",
@@ -356,14 +356,6 @@ extension NotchAgentStrings {
         budget: "Денний бюджет вартості API",
         off: "Вимкнено",
         updatedFormat: "Оновлено %@",
-        claudeLimitsTitle: "Ліміти плану Claude",
-        claudeLimitsCurrentFormat: "Прочитано з програми Claude, оновлено %@",
-        claudeLimitsStaleFormat: "Програма Claude востаннє перевіряла їх %@.",
-        claudeLimitsMenuBar: "Claude перевіряє ліміти, лише коли його значок є на смузі меню. Увімкніть значок у налаштуваннях програми Claude, і ліміти з’являться тут протягом кількох хвилин.",
-        claudeLimitsNoApp: "Ліміти плану надходять із програми Claude, якої немає на цьому Mac. Поки що п’ятигодинний сеанс оцінюється за активністю Claude Code.",
-        claudeLimitsPrivacy: "Vorssaint читає відсотки, які програма Claude зберігає на цьому Mac. Вхід в обліковий запис не потрібен, і нічого не надсилається.",
-        openClaude: "Відкрити Claude",
-        getClaude: "Завантажити програму Claude",
         priceUpdates: "Підтримувати ціни актуальними",
         priceUpdatesHint: "Раз на день завантажує публічний список цін із GitHub, щоб нові моделі отримували вартість API без оновлення програми. Дані про ваше використання не надсилаються.",
         pricesFromFormat: "Список цін від %@",
@@ -387,13 +379,21 @@ extension NotchAgentStrings {
         refreshTitle: "Оновити використання ШІ",
         refreshHelp: "Оновити використання, витрати й ліміти. Активні сеанси оновлюються автоматично.",
         claudeRefreshStale: "Новішого звіту про ліміти Claude ще немає. Ліміти оновлюються, коли Claude Code повідомляє про нове використання.",
-        statusLineTitle: "Актуальні ліміти від Claude Code",
         statusLineHint: "Необов’язково. Claude Code може передавати Vorssaint ваші ліміти плану через свій рядок стану, щоб вони були актуальними, поки ви ним користуєтесь. Нічого не надсилається: невеликий скрипт зберігає відсотки в папці цього застосунку. Скопіюйте налаштування й додайте його до ~/.claude/settings.json.",
         statusLineReceivedFormat: "Востаннє отримано %@.",
-        statusLineNone: "Ще нічого не отримано",
         statusLineCopy: "Копіювати налаштування",
         statusLineCopied: "Скопійовано. Додайте до ~/.claude/settings.json.",
-        statusLineHelp: "Ліміти беруться з останнього звіту, який Claude Code надсилає в рядок стану. «Оновити» перевіряє цей звіт ще раз, але не може змусити Claude Code надіслати новий.")
+        statusLineHelp: "Ліміти беруться з останнього звіту, який Claude Code надсилає в рядок стану. «Оновити» перевіряє цей звіт ще раз, але не може змусити Claude Code надіслати новий.",
+        integrationTitle: "Інтеграція з Claude Code",
+        integrationConnected: "Підключено",
+        integrationConnectedDetail: "Claude Code локально передає ліміти вашого плану через рядок стану. Vorssaint не отримує доступу до ваших облікових даних Claude.",
+        integrationWaitingDetail: "Очікуємо, поки Claude Code повідомить ліміти. Надішліть повідомлення в Claude Code, щоб отримати перший звіт.",
+        integrationSetupRequired: "Потрібне налаштування",
+        integrationRepairNeeded: "Потрібен ремонт",
+        integrationRepairNeededDetail: "Vorssaint не зміг оновити свій скрипт. Спробуйте «Виправити / оновити».",
+        integrationRepair: "Виправити / оновити",
+        lastRefreshFormat: "Останнє оновлення: %@",
+        fallbackFormat: "Резерв: історія застосунку Claude, останній звіт %@")
 
     static let ptBR = NotchAgentStrings(
         title: "Agentes de IA",
@@ -461,14 +461,6 @@ extension NotchAgentStrings {
         budget: "Orçamento diário em valor de API",
         off: "Desativado",
         updatedFormat: "Atualizado %@",
-        claudeLimitsTitle: "Limites do plano do Claude",
-        claudeLimitsCurrentFormat: "Lidos do app Claude, atualizados %@",
-        claudeLimitsStaleFormat: "O app Claude verificou os limites pela última vez %@.",
-        claudeLimitsMenuBar: "O Claude só verifica os limites enquanto o ícone dele está na barra de menus. Ative o ícone nos ajustes do app Claude, e os limites aparecem aqui em poucos minutos.",
-        claudeLimitsNoApp: "Os limites do plano vêm do app Claude, que não está neste Mac. Até lá, a sessão de 5 horas é estimada pela atividade do Claude Code.",
-        claudeLimitsPrivacy: "O Vorssaint lê os percentuais que o app Claude salva neste Mac. Nenhum login é usado e nada é enviado.",
-        openClaude: "Abrir o Claude",
-        getClaude: "Baixar o app Claude",
         priceUpdates: "Manter os preços atualizados",
         priceUpdatesHint: "Baixa uma vez por dia a lista pública de preços no GitHub, para que modelos novos ganhem valor de API sem atualizar o app. Nada sobre o seu uso é enviado.",
         pricesFromFormat: "Lista de preços de %@",
@@ -492,13 +484,21 @@ extension NotchAgentStrings {
         refreshTitle: "Atualizar uso de IA",
         refreshHelp: "Atualiza uso, gastos e limites. Sessões ativas se atualizam sozinhas.",
         claudeRefreshStale: "Ainda não há um relatório de limites mais recente do Claude. Os limites se atualizam quando o Claude Code informa novo uso.",
-        statusLineTitle: "Limites ao vivo do Claude Code",
         statusLineHint: "Opcional. O Claude Code pode passar os limites do seu plano ao Vorssaint pela linha de status, mantendo-os atualizados enquanto você o usa. Nada é enviado: um pequeno script salva as porcentagens na pasta deste app. Copie a configuração e adicione-a a ~/.claude/settings.json.",
         statusLineReceivedFormat: "Último recebimento: %@.",
-        statusLineNone: "Nada recebido ainda",
         statusLineCopy: "Copiar configuração",
         statusLineCopied: "Copiado. Adicione a ~/.claude/settings.json.",
-        statusLineHelp: "Os limites vêm do último relatório que o Claude Code envia à linha de status. Atualizar verifica esse relatório de novo, mas não faz o Claude Code enviar outro.")
+        statusLineHelp: "Os limites vêm do último relatório que o Claude Code envia à linha de status. Atualizar verifica esse relatório de novo, mas não faz o Claude Code enviar outro.",
+        integrationTitle: "Integração com o Claude Code",
+        integrationConnected: "Conectado",
+        integrationConnectedDetail: "O Claude Code informa os limites do seu plano localmente pela linha de status. O Vorssaint não acessa suas credenciais do Claude.",
+        integrationWaitingDetail: "Aguardando o Claude Code informar os limites. Envie uma mensagem no Claude Code para receber o primeiro relatório.",
+        integrationSetupRequired: "Configuração necessária",
+        integrationRepairNeeded: "Reparo necessário",
+        integrationRepairNeededDetail: "O Vorssaint não conseguiu atualizar o próprio script. Tente Reparar / Atualizar.",
+        integrationRepair: "Reparar / Atualizar",
+        lastRefreshFormat: "Última atualização: %@",
+        fallbackFormat: "Alternativa: histórico do app Claude, último relatório %@")
 
     static let es = NotchAgentStrings(
         title: "Agentes de IA",
@@ -566,14 +566,6 @@ extension NotchAgentStrings {
         budget: "Presupuesto diario en valor de API",
         off: "Desactivado",
         updatedFormat: "Actualizado %@",
-        claudeLimitsTitle: "Límites del plan de Claude",
-        claudeLimitsCurrentFormat: "Leídos de la app de Claude, actualizados %@",
-        claudeLimitsStaleFormat: "La app de Claude los revisó por última vez %@.",
-        claudeLimitsMenuBar: "Claude solo revisa los límites mientras su icono está en la barra de menús. Activa el icono en los ajustes de la app de Claude, y los límites aparecerán aquí en pocos minutos.",
-        claudeLimitsNoApp: "Los límites del plan vienen de la app de Claude, que no está en este Mac. Mientras tanto, la sesión de 5 horas se estima a partir de la actividad de Claude Code.",
-        claudeLimitsPrivacy: "Vorssaint lee los porcentajes que la app de Claude guarda en este Mac. No se usa ningún inicio de sesión y no se envía nada.",
-        openClaude: "Abrir Claude",
-        getClaude: "Descargar la app de Claude",
         priceUpdates: "Mantener los precios al día",
         priceUpdatesHint: "Descarga una vez al día la lista pública de precios desde GitHub, para que los modelos nuevos tengan valor de API sin actualizar la app. No se envía nada sobre tu uso.",
         pricesFromFormat: "Lista de precios del %@",
@@ -597,13 +589,21 @@ extension NotchAgentStrings {
         refreshTitle: "Actualizar uso de IA",
         refreshHelp: "Actualiza el uso, el gasto y los límites. Las sesiones activas se actualizan solas.",
         claudeRefreshStale: "Aún no hay un informe de límites más reciente de Claude. Los límites se actualizan cuando Claude Code informa de nuevo uso.",
-        statusLineTitle: "Límites en vivo de Claude Code",
         statusLineHint: "Opcional. Claude Code puede pasar los límites de tu plan a Vorssaint mediante su línea de estado, para que estén al día mientras lo usas. No se envía nada: un pequeño script guarda los porcentajes en la carpeta de esta app. Copia la configuración y añádela a ~/.claude/settings.json.",
         statusLineReceivedFormat: "Última recepción: %@.",
-        statusLineNone: "Aún no se ha recibido nada",
         statusLineCopy: "Copiar configuración",
         statusLineCopied: "Copiado. Añádela a ~/.claude/settings.json.",
-        statusLineHelp: "Los límites vienen del último informe que Claude Code envía a su línea de estado. Actualizar vuelve a revisarlo, pero no puede hacer que Claude Code envíe uno nuevo.")
+        statusLineHelp: "Los límites vienen del último informe que Claude Code envía a su línea de estado. Actualizar vuelve a revisarlo, pero no puede hacer que Claude Code envíe uno nuevo.",
+        integrationTitle: "Integración con Claude Code",
+        integrationConnected: "Conectado",
+        integrationConnectedDetail: "Claude Code informa localmente los límites de tu plan mediante su línea de estado. Vorssaint no accede a tus credenciales de Claude.",
+        integrationWaitingDetail: "Esperando a que Claude Code informe de los límites. Envía un mensaje en Claude Code para recibir el primer informe.",
+        integrationSetupRequired: "Configuración necesaria",
+        integrationRepairNeeded: "Reparación necesaria",
+        integrationRepairNeededDetail: "Vorssaint no pudo actualizar su script. Prueba Reparar / Actualizar.",
+        integrationRepair: "Reparar / Actualizar",
+        lastRefreshFormat: "Última actualización: %@",
+        fallbackFormat: "Alternativa: historial de la app de Claude, último informe %@")
 
     static let sk = NotchAgentStrings(
         title: "AI agenti",
@@ -671,14 +671,6 @@ extension NotchAgentStrings {
         budget: "Denný rozpočet hodnoty API",
         off: "Vypnuté",
         updatedFormat: "Aktualizované %@",
-        claudeLimitsTitle: "Limity plánu Claude",
-        claudeLimitsCurrentFormat: "Načítané z aplikácie Claude, aktualizované %@",
-        claudeLimitsStaleFormat: "Aplikácia Claude ich naposledy skontrolovala %@.",
-        claudeLimitsMenuBar: "Claude kontroluje vaše limity, len kým je jeho ikona v lište. Zapnite ikonu v nastaveniach aplikácie Claude a limity sa tu zobrazia do niekoľkých minút.",
-        claudeLimitsNoApp: "Limity plánu pochádzajú z aplikácie Claude, ktorá na tomto Macu nie je. Dovtedy sa 5-hodinová relácia odhaduje z aktivity Claude Code.",
-        claudeLimitsPrivacy: "Vorssaint číta percentá, ktoré aplikácia Claude ukladá na tomto Macu. Nepoužíva sa žiadne prihlásenie a nič sa neodosiela.",
-        openClaude: "Otvoriť Claude",
-        getClaude: "Získať aplikáciu Claude",
         priceUpdates: "Udržiavať ceny aktuálne",
         priceUpdatesHint: "Raz denne stiahne verejný cenník z GitHubu, aby nové modely dostali hodnotu API aj bez aktualizácie aplikácie. O vašom využití sa neodosiela nič.",
         pricesFromFormat: "Cenník z %@",
@@ -702,13 +694,21 @@ extension NotchAgentStrings {
         refreshTitle: "Obnoviť využitie AI",
         refreshHelp: "Obnoví využitie, výdavky a limity. Aktívne relácie sa aktualizujú automaticky.",
         claudeRefreshStale: "Zatiaľ nie je novší report limitov Claude. Limity sa aktualizujú, keď Claude Code nahlási nové využitie.",
-        statusLineTitle: "Aktuálne limity z Claude Code",
         statusLineHint: "Voliteľné. Claude Code môže odovzdávať limity vášho plánu aplikácii Vorssaint cez stavový riadok, aby boli aktuálne, kým ho používate. Nič sa neodosiela: malý skript ukladá percentá do priečinka tejto aplikácie. Skopírujte nastavenie a pridajte ho do ~/.claude/settings.json.",
         statusLineReceivedFormat: "Naposledy prijaté %@.",
-        statusLineNone: "Zatiaľ nič neprijaté",
         statusLineCopy: "Kopírovať nastavenie",
         statusLineCopied: "Skopírované. Pridajte do ~/.claude/settings.json.",
-        statusLineHelp: "Limity pochádzajú z posledného reportu, ktorý Claude Code posiela do stavového riadka. Obnoviť ho len znova skontroluje, nenúti Claude Code poslať nový.")
+        statusLineHelp: "Limity pochádzajú z posledného reportu, ktorý Claude Code posiela do stavového riadka. Obnoviť ho len znova skontroluje, nenúti Claude Code poslať nový.",
+        integrationTitle: "Integrácia s Claude Code",
+        integrationConnected: "Pripojené",
+        integrationConnectedDetail: "Claude Code lokálne hlási limity vášho plánu cez stavový riadok. Vorssaint nepristupuje k vašim prihlasovacím údajom Claude.",
+        integrationWaitingDetail: "Čaká sa, kým Claude Code nahlási limity. Pošlite správu v Claude Code a dostanete prvý report.",
+        integrationSetupRequired: "Vyžaduje sa nastavenie",
+        integrationRepairNeeded: "Vyžaduje sa oprava",
+        integrationRepairNeededDetail: "Vorssaint nedokázal aktualizovať svoj skript. Skúste Opraviť / aktualizovať.",
+        integrationRepair: "Opraviť / aktualizovať",
+        lastRefreshFormat: "Posledné obnovenie: %@",
+        fallbackFormat: "Záloha: história aplikácie Claude, posledný report %@")
 
     static let de = NotchAgentStrings(
         title: "KI-Agenten",
@@ -776,14 +776,6 @@ extension NotchAgentStrings {
         budget: "Tagesbudget für den API-Wert",
         off: "Aus",
         updatedFormat: "Aktualisiert %@",
-        claudeLimitsTitle: "Planlimits von Claude",
-        claudeLimitsCurrentFormat: "Aus der Claude-App gelesen, aktualisiert %@",
-        claudeLimitsStaleFormat: "Die Claude-App hat sie zuletzt %@ geprüft.",
-        claudeLimitsMenuBar: "Claude prüft die Limits nur, solange sein Symbol in der Menüleiste ist. Schalte das Symbol in den Einstellungen der Claude-App ein, dann erscheinen die Limits hier innerhalb weniger Minuten.",
-        claudeLimitsNoApp: "Die Planlimits kommen aus der Claude-App, die nicht auf diesem Mac ist. Bis dahin wird die 5-Stunden-Sitzung aus der Aktivität von Claude Code geschätzt.",
-        claudeLimitsPrivacy: "Vorssaint liest die Prozentwerte, die die Claude-App auf diesem Mac speichert. Es wird keine Anmeldung verwendet und nichts gesendet.",
-        openClaude: "Claude öffnen",
-        getClaude: "Claude-App laden",
         priceUpdates: "Preise aktuell halten",
         priceUpdatesHint: "Lädt einmal am Tag die öffentliche Preisliste von GitHub, damit neue Modelle ohne App-Update einen API-Wert bekommen. Über deine Nutzung wird nichts gesendet.",
         pricesFromFormat: "Preisliste vom %@",
@@ -807,13 +799,21 @@ extension NotchAgentStrings {
         refreshTitle: "KI-Nutzung aktualisieren",
         refreshHelp: "Aktualisiert Nutzung, Ausgaben und Limits. Laufende Sitzungen aktualisieren sich automatisch.",
         claudeRefreshStale: "Noch kein neuerer Claude-Limitbericht. Die Limits aktualisieren sich, wenn Claude Code neue Nutzung meldet.",
-        statusLineTitle: "Aktuelle Limits von Claude Code",
         statusLineHint: "Optional. Claude Code kann die Limits deines Tarifs über seine Statuszeile an Vorssaint weitergeben, damit sie aktuell bleiben, solange du es nutzt. Es wird nichts gesendet: Ein kleines Skript speichert die Prozentwerte im Ordner dieser App. Kopiere die Einrichtung und füge sie in ~/.claude/settings.json ein.",
         statusLineReceivedFormat: "Zuletzt empfangen: %@.",
-        statusLineNone: "Noch nichts empfangen",
         statusLineCopy: "Einrichtung kopieren",
         statusLineCopied: "Kopiert. In ~/.claude/settings.json einfügen.",
-        statusLineHelp: "Die Limits stammen aus dem letzten Bericht, den Claude Code an seine Statuszeile sendet. Aktualisieren prüft ihn erneut, kann Claude Code aber nicht zu einem neuen bewegen.")
+        statusLineHelp: "Die Limits stammen aus dem letzten Bericht, den Claude Code an seine Statuszeile sendet. Aktualisieren prüft ihn erneut, kann Claude Code aber nicht zu einem neuen bewegen.",
+        integrationTitle: "Claude-Code-Integration",
+        integrationConnected: "Verbunden",
+        integrationConnectedDetail: "Claude Code meldet die Limits deines Tarifs lokal über seine Statuszeile. Vorssaint greift nicht auf deine Claude-Zugangsdaten zu.",
+        integrationWaitingDetail: "Warten darauf, dass Claude Code die Limits meldet. Sende eine Nachricht in Claude Code, um den ersten Bericht zu erhalten.",
+        integrationSetupRequired: "Einrichtung erforderlich",
+        integrationRepairNeeded: "Reparatur erforderlich",
+        integrationRepairNeededDetail: "Vorssaint konnte sein Skript nicht aktualisieren. Versuche „Reparieren / Aktualisieren“.",
+        integrationRepair: "Reparieren / Aktualisieren",
+        lastRefreshFormat: "Zuletzt aktualisiert: %@",
+        fallbackFormat: "Ersatzquelle: Verlauf der Claude-App, letzter Bericht %@")
 
     static let fr = NotchAgentStrings(
         title: "Agents IA",
@@ -881,14 +881,6 @@ extension NotchAgentStrings {
         budget: "Budget quotidien en valeur API",
         off: "Désactivé",
         updatedFormat: "Mis à jour %@",
-        claudeLimitsTitle: "Limites du forfait Claude",
-        claudeLimitsCurrentFormat: "Lues dans l’app Claude, mises à jour %@",
-        claudeLimitsStaleFormat: "L’app Claude les a vérifiées pour la dernière fois %@.",
-        claudeLimitsMenuBar: "Claude ne vérifie les limites que lorsque son icône est dans la barre des menus. Activez l’icône dans les réglages de l’app Claude, et les limites apparaîtront ici en quelques minutes.",
-        claudeLimitsNoApp: "Les limites du forfait viennent de l’app Claude, absente de ce Mac. En attendant, la session de 5 heures est estimée d’après l’activité de Claude Code.",
-        claudeLimitsPrivacy: "Vorssaint lit les pourcentages que l’app Claude enregistre sur ce Mac. Aucune connexion n’est utilisée et rien n’est envoyé.",
-        openClaude: "Ouvrir Claude",
-        getClaude: "Télécharger l’app Claude",
         priceUpdates: "Garder les prix à jour",
         priceUpdatesHint: "Télécharge une fois par jour la liste publique des prix depuis GitHub, pour que les nouveaux modèles aient une valeur API sans mise à jour de l’app. Rien sur votre usage n’est envoyé.",
         pricesFromFormat: "Liste des prix du %@",
@@ -912,13 +904,21 @@ extension NotchAgentStrings {
         refreshTitle: "Actualiser l’utilisation de l’IA",
         refreshHelp: "Actualise l’utilisation, les dépenses et les limites. Les sessions en cours se mettent à jour automatiquement.",
         claudeRefreshStale: "Pas encore de rapport de limites Claude plus récent. Les limites se mettent à jour quand Claude Code signale une nouvelle utilisation.",
-        statusLineTitle: "Limites en direct de Claude Code",
         statusLineHint: "Facultatif. Claude Code peut transmettre les limites de votre forfait à Vorssaint par sa ligne d’état, pour qu’elles restent à jour pendant que vous l’utilisez. Rien n’est envoyé : un petit script enregistre les pourcentages dans le dossier de cette app. Copiez la configuration et ajoutez-la à ~/.claude/settings.json.",
         statusLineReceivedFormat: "Dernière réception : %@.",
-        statusLineNone: "Rien reçu pour l’instant",
         statusLineCopy: "Copier la configuration",
         statusLineCopied: "Copié. Ajoutez-le à ~/.claude/settings.json.",
-        statusLineHelp: "Les limites viennent du dernier rapport que Claude Code envoie à sa ligne d’état. Actualiser le relit, mais ne peut pas obliger Claude Code à en envoyer un nouveau.")
+        statusLineHelp: "Les limites viennent du dernier rapport que Claude Code envoie à sa ligne d’état. Actualiser le relit, mais ne peut pas obliger Claude Code à en envoyer un nouveau.",
+        integrationTitle: "Intégration de Claude Code",
+        integrationConnected: "Connecté",
+        integrationConnectedDetail: "Claude Code signale localement les limites de votre forfait par sa ligne d’état. Vorssaint n’accède pas à vos identifiants Claude.",
+        integrationWaitingDetail: "En attente d’un rapport de Claude Code. Envoyez un message dans Claude Code pour recevoir le premier rapport.",
+        integrationSetupRequired: "Configuration requise",
+        integrationRepairNeeded: "Réparation requise",
+        integrationRepairNeededDetail: "Vorssaint n’a pas pu mettre à jour son script. Essayez Réparer / Mettre à jour.",
+        integrationRepair: "Réparer / Mettre à jour",
+        lastRefreshFormat: "Dernière actualisation : %@",
+        fallbackFormat: "Source de secours : historique de l’app Claude, dernier rapport %@")
 
     static let it = NotchAgentStrings(
         title: "Agenti IA",
@@ -986,14 +986,6 @@ extension NotchAgentStrings {
         budget: "Budget giornaliero in valore API",
         off: "Disattivato",
         updatedFormat: "Aggiornato %@",
-        claudeLimitsTitle: "Limiti del piano di Claude",
-        claudeLimitsCurrentFormat: "Letti dall’app Claude, aggiornati %@",
-        claudeLimitsStaleFormat: "L’app Claude li ha controllati l’ultima volta %@.",
-        claudeLimitsMenuBar: "Claude controlla i limiti solo mentre la sua icona è nella barra dei menu. Attiva l’icona nelle impostazioni dell’app Claude, e i limiti compariranno qui in pochi minuti.",
-        claudeLimitsNoApp: "I limiti del piano arrivano dall’app Claude, che non è su questo Mac. Nel frattempo, la sessione di 5 ore è stimata dall’attività di Claude Code.",
-        claudeLimitsPrivacy: "Vorssaint legge le percentuali che l’app Claude salva su questo Mac. Non usa alcun accesso e non invia nulla.",
-        openClaude: "Apri Claude",
-        getClaude: "Scarica l’app Claude",
         priceUpdates: "Mantieni i prezzi aggiornati",
         priceUpdatesHint: "Scarica una volta al giorno il listino prezzi pubblico da GitHub, così i nuovi modelli hanno un valore API senza aggiornare l’app. Non viene inviato nulla sul tuo utilizzo.",
         pricesFromFormat: "Listino del %@",
@@ -1017,13 +1009,21 @@ extension NotchAgentStrings {
         refreshTitle: "Aggiorna l’uso dell’IA",
         refreshHelp: "Aggiorna uso, spesa e limiti. Le sessioni attive si aggiornano da sole.",
         claudeRefreshStale: "Nessun rapporto sui limiti di Claude più recente. I limiti si aggiornano quando Claude Code segnala nuovo utilizzo.",
-        statusLineTitle: "Limiti in tempo reale da Claude Code",
         statusLineHint: "Facoltativo. Claude Code può passare a Vorssaint i limiti del tuo piano tramite la riga di stato, così restano aggiornati mentre lo usi. Non viene inviato nulla: un piccolo script salva le percentuali nella cartella di questa app. Copia la configurazione e aggiungila a ~/.claude/settings.json.",
         statusLineReceivedFormat: "Ultima ricezione: %@.",
-        statusLineNone: "Ancora nulla ricevuto",
         statusLineCopy: "Copia configurazione",
         statusLineCopied: "Copiato. Aggiungilo a ~/.claude/settings.json.",
-        statusLineHelp: "I limiti provengono dall’ultimo rapporto che Claude Code invia alla riga di stato. Aggiorna lo ricontrolla, ma non può far sì che Claude Code ne invii uno nuovo.")
+        statusLineHelp: "I limiti provengono dall’ultimo rapporto che Claude Code invia alla riga di stato. Aggiorna lo ricontrolla, ma non può far sì che Claude Code ne invii uno nuovo.",
+        integrationTitle: "Integrazione con Claude Code",
+        integrationConnected: "Connesso",
+        integrationConnectedDetail: "Claude Code segnala localmente i limiti del tuo piano tramite la riga di stato. Vorssaint non accede alle tue credenziali Claude.",
+        integrationWaitingDetail: "In attesa che Claude Code segnali i limiti. Invia un messaggio in Claude Code per ricevere il primo rapporto.",
+        integrationSetupRequired: "Configurazione necessaria",
+        integrationRepairNeeded: "Riparazione necessaria",
+        integrationRepairNeededDetail: "Vorssaint non è riuscito ad aggiornare il proprio script. Prova Ripara / Aggiorna.",
+        integrationRepair: "Ripara / Aggiorna",
+        lastRefreshFormat: "Ultimo aggiornamento: %@",
+        fallbackFormat: "Alternativa: cronologia dell’app Claude, ultimo rapporto %@")
 
     static let ru = NotchAgentStrings(
         title: "ИИ-агенты",
@@ -1091,14 +1091,6 @@ extension NotchAgentStrings {
         budget: "Дневной бюджет по стоимости API",
         off: "Выкл.",
         updatedFormat: "Обновлено %@",
-        claudeLimitsTitle: "Лимиты тарифа Claude",
-        claudeLimitsCurrentFormat: "Из приложения Claude, обновлено %@",
-        claudeLimitsStaleFormat: "Приложение Claude в последний раз проверяло их %@.",
-        claudeLimitsMenuBar: "Claude проверяет лимиты, только пока его значок есть в строке меню. Включите значок в настройках приложения Claude, и лимиты появятся здесь через несколько минут.",
-        claudeLimitsNoApp: "Лимиты тарифа берутся из приложения Claude, которого нет на этом Mac. Пока его нет, 5-часовая сессия оценивается по активности Claude Code.",
-        claudeLimitsPrivacy: "Vorssaint читает проценты, которые приложение Claude сохраняет на этом Mac. Вход в аккаунт не используется, и ничего не отправляется.",
-        openClaude: "Открыть Claude",
-        getClaude: "Скачать приложение Claude",
         priceUpdates: "Обновлять цены",
         priceUpdatesHint: "Раз в день загружает общедоступный прейскурант с GitHub, чтобы новые модели получали стоимость по API без обновления приложения. Сведения об использовании не отправляются.",
         pricesFromFormat: "Прейскурант от %@",
@@ -1122,13 +1114,21 @@ extension NotchAgentStrings {
         refreshTitle: "Обновить использование ИИ",
         refreshHelp: "Обновляет использование, расходы и лимиты. Активные сеансы обновляются автоматически.",
         claudeRefreshStale: "Более нового отчёта о лимитах Claude пока нет. Лимиты обновляются, когда Claude Code сообщает о новом использовании.",
-        statusLineTitle: "Актуальные лимиты из Claude Code",
         statusLineHint: "Необязательно. Claude Code может передавать Vorssaint лимиты вашего тарифа через строку состояния, чтобы они оставались актуальными, пока вы им пользуетесь. Ничего не отправляется: небольшой скрипт сохраняет проценты в папке этого приложения. Скопируйте настройку и добавьте её в ~/.claude/settings.json.",
         statusLineReceivedFormat: "Последнее получение: %@.",
-        statusLineNone: "Пока ничего не получено",
         statusLineCopy: "Скопировать настройку",
         statusLineCopied: "Скопировано. Добавьте в ~/.claude/settings.json.",
-        statusLineHelp: "Лимиты берутся из последнего отчёта, который Claude Code отправляет в строку состояния. «Обновить» перепроверяет этот отчёт, но не может заставить Claude Code прислать новый.")
+        statusLineHelp: "Лимиты берутся из последнего отчёта, который Claude Code отправляет в строку состояния. «Обновить» перепроверяет этот отчёт, но не может заставить Claude Code прислать новый.",
+        integrationTitle: "Интеграция с Claude Code",
+        integrationConnected: "Подключено",
+        integrationConnectedDetail: "Claude Code локально сообщает лимиты вашего тарифа через строку состояния. Vorssaint не получает доступ к вашим учётным данным Claude.",
+        integrationWaitingDetail: "Ожидание отчёта Claude Code о лимитах. Отправьте сообщение в Claude Code, чтобы получить первый отчёт.",
+        integrationSetupRequired: "Требуется настройка",
+        integrationRepairNeeded: "Требуется исправление",
+        integrationRepairNeededDetail: "Vorssaint не удалось обновить свой скрипт. Попробуйте «Исправить / обновить».",
+        integrationRepair: "Исправить / обновить",
+        lastRefreshFormat: "Последнее обновление: %@",
+        fallbackFormat: "Резерв: история приложения Claude, последний отчёт %@")
 
     static let tr = NotchAgentStrings(
         title: "YZ Ajanları",
@@ -1196,14 +1196,6 @@ extension NotchAgentStrings {
         budget: "Günlük API değeri bütçesi",
         off: "Kapalı",
         updatedFormat: "%@ güncellendi",
-        claudeLimitsTitle: "Claude plan sınırları",
-        claudeLimitsCurrentFormat: "Claude uygulamasından okundu, %@ güncellendi",
-        claudeLimitsStaleFormat: "Claude uygulaması bunları en son %@ kontrol etti.",
-        claudeLimitsMenuBar: "Claude, sınırları yalnızca simgesi menü çubuğundayken kontrol eder. Simgeyi Claude uygulamasının ayarlarından açtığınızda sınırlar birkaç dakika içinde burada görünür.",
-        claudeLimitsNoApp: "Plan sınırları, bu Mac’te olmayan Claude uygulamasından gelir. O zamana kadar 5 saatlik oturum, Claude Code etkinliğinden tahmin edilir.",
-        claudeLimitsPrivacy: "Vorssaint, Claude uygulamasının bu Mac’e kaydettiği yüzdeleri okur. Hiçbir oturum açma bilgisi kullanılmaz ve hiçbir şey gönderilmez.",
-        openClaude: "Claude’u Aç",
-        getClaude: "Claude uygulamasını indir",
         priceUpdates: "Fiyatları güncel tut",
         priceUpdatesHint: "Genel fiyat listesini günde bir kez GitHub’dan indirir; böylece yeni modeller uygulama güncellemesi olmadan API değeri alır. Kullanımınızla ilgili hiçbir şey gönderilmez.",
         pricesFromFormat: "%@ tarihli fiyat listesi",
@@ -1227,13 +1219,21 @@ extension NotchAgentStrings {
         refreshTitle: "Yapay zekâ kullanımını yenile",
         refreshHelp: "Kullanımı, harcamayı ve sınırları yeniler. Canlı oturumlar kendiliğinden güncellenir.",
         claudeRefreshStale: "Claude sınırları için daha yeni bir rapor henüz yok. Sınırlar, Claude Code yeni kullanım bildirdiğinde güncellenir.",
-        statusLineTitle: "Claude Code’dan canlı sınırlar",
         statusLineHint: "İsteğe bağlı. Claude Code, plan sınırlarınızı durum satırı aracılığıyla Vorssaint’e aktarabilir; böylece onu kullanırken güncel kalırlar. Hiçbir şey gönderilmez: küçük bir betik yüzdeleri bu uygulamanın klasörüne kaydeder. Kurulumu kopyalayıp ~/.claude/settings.json dosyasına ekleyin.",
         statusLineReceivedFormat: "Son alınan: %@.",
-        statusLineNone: "Henüz bir şey alınmadı",
         statusLineCopy: "Kurulumu kopyala",
         statusLineCopied: "Kopyalandı. ~/.claude/settings.json dosyasına ekleyin.",
-        statusLineHelp: "Sınırlar, Claude Code’un durum satırına gönderdiği son rapordan gelir. Yenile bu raporu yeniden denetler; Claude Code’a yeni rapor gönderttiremez.")
+        statusLineHelp: "Sınırlar, Claude Code’un durum satırına gönderdiği son rapordan gelir. Yenile bu raporu yeniden denetler; Claude Code’a yeni rapor gönderttiremez.",
+        integrationTitle: "Claude Code entegrasyonu",
+        integrationConnected: "Bağlı",
+        integrationConnectedDetail: "Claude Code, plan sınırlarınızı durum satırı üzerinden yerel olarak bildirir. Vorssaint Claude kimlik bilgilerinize erişmez.",
+        integrationWaitingDetail: "Claude Code’un sınırları bildirmesi bekleniyor. İlk raporu almak için Claude Code’da bir mesaj gönderin.",
+        integrationSetupRequired: "Kurulum gerekli",
+        integrationRepairNeeded: "Onarım gerekli",
+        integrationRepairNeededDetail: "Vorssaint betiğini güncelleyemedi. Onar / Güncelle’yi deneyin.",
+        integrationRepair: "Onar / Güncelle",
+        lastRefreshFormat: "Son yenileme: %@",
+        fallbackFormat: "Yedek: Claude uygulaması geçmişi, son rapor %@")
 
     static let ja = NotchAgentStrings(
         title: "AIエージェント",
@@ -1301,14 +1301,6 @@ extension NotchAgentStrings {
         budget: "API換算額の1日の予算",
         off: "オフ",
         updatedFormat: "最終更新：%@",
-        claudeLimitsTitle: "Claudeのプラン上限",
-        claudeLimitsCurrentFormat: "Claudeアプリから取得（最終更新：%@）",
-        claudeLimitsStaleFormat: "Claudeアプリが最後に確認したのは%@です。",
-        claudeLimitsMenuBar: "Claudeは、アイコンがメニューバーにあるあいだだけ上限を確認します。Claudeアプリの設定でアイコンをオンにすると、数分で上限がここに表示されます。",
-        claudeLimitsNoApp: "プラン上限はClaudeアプリから取得しますが、このMacにはありません。それまでは、5時間のセッションをClaude Codeのアクティビティから推定します。",
-        claudeLimitsPrivacy: "Vorssaintは、ClaudeアプリがこのMacに保存する割合を読み取ります。サインイン情報は使わず、何も送信しません。",
-        openClaude: "Claudeを開く",
-        getClaude: "Claudeアプリを入手",
         priceUpdates: "価格を最新に保つ",
         priceUpdatesHint: "公開価格表を1日1回GitHubからダウンロードし、新しいモデルにもアプリのアップデートなしでAPI換算額を表示します。使用状況は送信しません。",
         pricesFromFormat: "%@時点の価格表",
@@ -1332,13 +1324,21 @@ extension NotchAgentStrings {
         refreshTitle: "AI使用状況を更新",
         refreshHelp: "使用量、支出、上限を更新します。実行中のセッションは自動で更新されます。",
         claudeRefreshStale: "Claudeの上限について、より新しいレポートはまだありません。上限は、Claude Codeが新しい使用状況を報告すると更新されます。",
-        statusLineTitle: "Claude Codeからのリアルタイムの上限",
         statusLineHint: "任意です。Claude Codeはステータスラインを通じてプランの上限をVorssaintに渡せるため、使用中は最新の状態に保たれます。何も送信されません。小さなスクリプトがこのアプリのフォルダにパーセンテージを保存します。設定をコピーして ~/.claude/settings.json に追加してください。",
         statusLineReceivedFormat: "最後の受信: %@",
-        statusLineNone: "まだ受信していません",
         statusLineCopy: "設定をコピー",
         statusLineCopied: "コピーしました。~/.claude/settings.json に追加してください。",
-        statusLineHelp: "上限は、Claude Codeがステータスラインに送った最新のレポートから取得します。更新はそのレポートを再確認するだけで、Claude Codeに新しいレポートを送らせることはできません。")
+        statusLineHelp: "上限は、Claude Codeがステータスラインに送った最新のレポートから取得します。更新はそのレポートを再確認するだけで、Claude Codeに新しいレポートを送らせることはできません。",
+        integrationTitle: "Claude Codeとの連携",
+        integrationConnected: "接続済み",
+        integrationConnectedDetail: "Claude Codeはステータスラインを通じて、プランの上限をローカルで報告します。VorssaintはClaudeの認証情報にアクセスしません。",
+        integrationWaitingDetail: "Claude Codeが上限を報告するのを待っています。Claude Codeでメッセージを送ると最初のレポートが届きます。",
+        integrationSetupRequired: "設定が必要です",
+        integrationRepairNeeded: "修復が必要です",
+        integrationRepairNeededDetail: "Vorssaintがスクリプトを更新できませんでした。「修復 / 更新」をお試しください。",
+        integrationRepair: "修復 / 更新",
+        lastRefreshFormat: "最終更新: %@",
+        fallbackFormat: "代替: Claudeアプリの履歴、最後のレポート %@")
 
     static let ko = NotchAgentStrings(
         title: "AI 에이전트",
@@ -1406,14 +1406,6 @@ extension NotchAgentStrings {
         budget: "API 환산 금액 일일 예산",
         off: "끔",
         updatedFormat: "%@ 업데이트됨",
-        claudeLimitsTitle: "Claude 플랜 한도",
-        claudeLimitsCurrentFormat: "Claude 앱에서 읽음, %@ 업데이트됨",
-        claudeLimitsStaleFormat: "Claude 앱이 %@ 마지막으로 확인했습니다.",
-        claudeLimitsMenuBar: "Claude는 아이콘이 메뉴 막대에 있을 때만 한도를 확인합니다. Claude 앱 설정에서 아이콘을 켜면 몇 분 안에 한도가 여기에 표시됩니다.",
-        claudeLimitsNoApp: "플랜 한도는 Claude 앱에서 가져오지만 이 Mac에는 앱이 없습니다. 그동안에는 5시간 세션을 Claude Code 활동으로 추정합니다.",
-        claudeLimitsPrivacy: "Vorssaint는 Claude 앱이 이 Mac에 저장하는 비율을 읽습니다. 로그인 정보는 사용하지 않으며 아무것도 전송하지 않습니다.",
-        openClaude: "Claude 열기",
-        getClaude: "Claude 앱 받기",
         priceUpdates: "가격을 최신으로 유지",
         priceUpdatesHint: "공개 가격표를 하루에 한 번 GitHub에서 내려받아, 새 모델도 앱 업데이트 없이 API 환산 금액을 표시합니다. 사용량 정보는 전송하지 않습니다.",
         pricesFromFormat: "%@ 기준 가격표",
@@ -1437,13 +1429,21 @@ extension NotchAgentStrings {
         refreshTitle: "AI 사용량 새로고침",
         refreshHelp: "사용량, 지출, 한도를 새로고칩니다. 진행 중인 세션은 자동으로 업데이트됩니다.",
         claudeRefreshStale: "Claude 한도에 대한 더 새로운 보고가 아직 없습니다. 한도는 Claude Code가 새 사용량을 보고하면 업데이트됩니다.",
-        statusLineTitle: "Claude Code 실시간 한도",
         statusLineHint: "선택 사항입니다. Claude Code가 상태 줄을 통해 요금제 한도를 Vorssaint에 전달해, 사용하는 동안 최신 상태로 유지됩니다. 아무것도 전송되지 않으며, 작은 스크립트가 이 앱의 폴더에 퍼센트를 저장합니다. 설정을 복사해 ~/.claude/settings.json에 추가하세요.",
         statusLineReceivedFormat: "마지막 수신: %@",
-        statusLineNone: "아직 수신된 내용 없음",
         statusLineCopy: "설정 복사",
         statusLineCopied: "복사했습니다. ~/.claude/settings.json에 추가하세요.",
-        statusLineHelp: "한도는 Claude Code가 상태 줄로 보낸 최신 보고에서 가져옵니다. 새로고침은 그 보고를 다시 확인할 뿐, Claude Code가 새 보고를 보내게 할 수는 없습니다.")
+        statusLineHelp: "한도는 Claude Code가 상태 줄로 보낸 최신 보고에서 가져옵니다. 새로고침은 그 보고를 다시 확인할 뿐, Claude Code가 새 보고를 보내게 할 수는 없습니다.",
+        integrationTitle: "Claude Code 연동",
+        integrationConnected: "연결됨",
+        integrationConnectedDetail: "Claude Code는 상태 줄을 통해 요금제 한도를 로컬로 보고합니다. Vorssaint는 Claude 자격 증명에 접근하지 않습니다.",
+        integrationWaitingDetail: "Claude Code가 한도를 보고하기를 기다리는 중입니다. Claude Code에서 메시지를 보내면 첫 보고를 받습니다.",
+        integrationSetupRequired: "설정 필요",
+        integrationRepairNeeded: "복구 필요",
+        integrationRepairNeededDetail: "Vorssaint가 스크립트를 업데이트하지 못했습니다. 복구 / 업데이트를 시도해 보세요.",
+        integrationRepair: "복구 / 업데이트",
+        lastRefreshFormat: "마지막 새로고침: %@",
+        fallbackFormat: "대체: Claude 앱 기록, 마지막 보고 %@")
 
     static let zhHans = NotchAgentStrings(
         title: "AI 智能体",
@@ -1511,14 +1511,6 @@ extension NotchAgentStrings {
         budget: "每日 API 价值预算",
         off: "关闭",
         updatedFormat: "上次更新：%@",
-        claudeLimitsTitle: "Claude 套餐额度",
-        claudeLimitsCurrentFormat: "读取自 Claude App，上次更新：%@",
-        claudeLimitsStaleFormat: "Claude App 上次检查是%@。",
-        claudeLimitsMenuBar: "只有当 Claude 的图标在菜单栏中时，它才会检查额度。在 Claude App 的设置中打开图标，几分钟内额度就会显示在这里。",
-        claudeLimitsNoApp: "套餐额度来自 Claude App，但这台 Mac 上没有安装。在此之前，5 小时会话根据 Claude Code 的活动估算。",
-        claudeLimitsPrivacy: "Vorssaint 读取 Claude App 在这台 Mac 上保存的百分比。不使用任何登录信息，也不发送任何内容。",
-        openClaude: "打开 Claude",
-        getClaude: "获取 Claude App",
         priceUpdates: "保持价格最新",
         priceUpdatesHint: "每天从 GitHub 下载一次公开价目表，新模型无需更新 App 也能显示 API 价值。不会发送任何用量信息。",
         pricesFromFormat: "%@的价目表",
@@ -1542,13 +1534,21 @@ extension NotchAgentStrings {
         refreshTitle: "刷新 AI 用量",
         refreshHelp: "刷新用量、花费和额度。进行中的会话会自动更新。",
         claudeRefreshStale: "暂无更新的 Claude 额度报告。Claude Code 报告新的用量时，额度才会更新。",
-        statusLineTitle: "来自 Claude Code 的实时额度",
         statusLineHint: "可选。Claude Code 可以通过状态栏把你的套餐额度传给 Vorssaint，让额度在你使用时保持最新。不会发送任何内容：一个小脚本会把百分比保存在本应用的文件夹中。复制设置并添加到 ~/.claude/settings.json。",
         statusLineReceivedFormat: "上次接收：%@。",
-        statusLineNone: "尚未收到",
         statusLineCopy: "复制设置",
         statusLineCopied: "已复制。请添加到 ~/.claude/settings.json。",
-        statusLineHelp: "额度来自 Claude Code 发送到状态栏的最新报告。刷新只会重新检查该报告，无法让 Claude Code 发送新的报告。")
+        statusLineHelp: "额度来自 Claude Code 发送到状态栏的最新报告。刷新只会重新检查该报告，无法让 Claude Code 发送新的报告。",
+        integrationTitle: "Claude Code 集成",
+        integrationConnected: "已连接",
+        integrationConnectedDetail: "Claude Code 通过状态栏在本地报告你的套餐额度。Vorssaint 不会访问你的 Claude 凭据。",
+        integrationWaitingDetail: "正在等待 Claude Code 报告额度。在 Claude Code 中发送一条消息即可收到首次报告。",
+        integrationSetupRequired: "需要设置",
+        integrationRepairNeeded: "需要修复",
+        integrationRepairNeededDetail: "Vorssaint 无法更新其脚本。请尝试“修复 / 更新”。",
+        integrationRepair: "修复 / 更新",
+        lastRefreshFormat: "上次刷新：%@",
+        fallbackFormat: "备用：Claude 应用历史记录，最近一次报告 %@")
 
     static let zhTW = NotchAgentStrings(
         title: "AI 代理",
@@ -1616,14 +1616,6 @@ extension NotchAgentStrings {
         budget: "每日 API 價值預算",
         off: "關閉",
         updatedFormat: "上次更新：%@",
-        claudeLimitsTitle: "Claude 方案額度",
-        claudeLimitsCurrentFormat: "讀取自 Claude App，上次更新：%@",
-        claudeLimitsStaleFormat: "Claude App 上次檢查是%@。",
-        claudeLimitsMenuBar: "只有當 Claude 的圖像在選單列中時，它才會檢查額度。在 Claude App 的設定中開啟圖像，幾分鐘內額度就會顯示在這裡。",
-        claudeLimitsNoApp: "方案額度來自 Claude App，但這台 Mac 上沒有安裝。在此之前，5 小時工作階段會依 Claude Code 的活動估算。",
-        claudeLimitsPrivacy: "Vorssaint 讀取 Claude App 在這台 Mac 上儲存的百分比。不會使用任何登入資訊，也不會傳送任何內容。",
-        openClaude: "打開 Claude",
-        getClaude: "取得 Claude App",
         priceUpdates: "保持價格最新",
         priceUpdatesHint: "每天從 GitHub 下載一次公開價目表，新模型不必更新 App 也能顯示 API 價值。不會傳送任何用量資訊。",
         pricesFromFormat: "%@的價目表",
@@ -1647,13 +1639,21 @@ extension NotchAgentStrings {
         refreshTitle: "重新整理 AI 用量",
         refreshHelp: "重新整理用量、花費和額度。進行中的工作階段會自動更新。",
         claudeRefreshStale: "尚無更新的 Claude 額度回報。Claude Code 回報新的用量時，額度才會更新。",
-        statusLineTitle: "來自 Claude Code 的即時額度",
         statusLineHint: "選用。Claude Code 可以透過狀態列把你的方案額度傳給 Vorssaint，讓額度在你使用時保持最新。不會傳送任何內容：一個小腳本會把百分比儲存在此 App 的資料夾中。複製設定並加入 ~/.claude/settings.json。",
         statusLineReceivedFormat: "上次接收：%@。",
-        statusLineNone: "尚未收到",
         statusLineCopy: "複製設定",
         statusLineCopied: "已複製。請加入 ~/.claude/settings.json。",
-        statusLineHelp: "額度來自 Claude Code 傳送到狀態列的最新回報。重新整理只會重新檢查該回報，無法讓 Claude Code 傳送新的回報。")
+        statusLineHelp: "額度來自 Claude Code 傳送到狀態列的最新回報。重新整理只會重新檢查該回報，無法讓 Claude Code 傳送新的回報。",
+        integrationTitle: "Claude Code 整合",
+        integrationConnected: "已連線",
+        integrationConnectedDetail: "Claude Code 會透過狀態列在本機回報你的方案額度。Vorssaint 不會存取你的 Claude 憑證。",
+        integrationWaitingDetail: "正在等待 Claude Code 回報額度。在 Claude Code 中傳送一則訊息即可收到第一次回報。",
+        integrationSetupRequired: "需要設定",
+        integrationRepairNeeded: "需要修復",
+        integrationRepairNeededDetail: "Vorssaint 無法更新其腳本。請嘗試「修復 / 更新」。",
+        integrationRepair: "修復 / 更新",
+        lastRefreshFormat: "上次重新整理：%@",
+        fallbackFormat: "備用：Claude App 記錄，最近一次回報 %@")
 
     static let zhHK = NotchAgentStrings(
         title: "AI 代理",
@@ -1721,14 +1721,6 @@ extension NotchAgentStrings {
         budget: "每日 API 價值預算",
         off: "關閉",
         updatedFormat: "上次更新：%@",
-        claudeLimitsTitle: "Claude 計劃額度",
-        claudeLimitsCurrentFormat: "讀取自 Claude App，上次更新：%@",
-        claudeLimitsStaleFormat: "Claude App 上次檢查是%@。",
-        claudeLimitsMenuBar: "只有當 Claude 的圖示在選單列中時，它才會檢查額度。在 Claude App 的設定中開啟圖示，幾分鐘內額度就會顯示在這裡。",
-        claudeLimitsNoApp: "計劃額度來自 Claude App，但這部 Mac 上沒有安裝。在此之前，5 小時工作階段會按 Claude Code 的活動估算。",
-        claudeLimitsPrivacy: "Vorssaint 讀取 Claude App 在這部 Mac 上儲存的百分比。不會使用任何登入資料，也不會傳送任何內容。",
-        openClaude: "打開 Claude",
-        getClaude: "取得 Claude App",
         priceUpdates: "保持價格最新",
         priceUpdatesHint: "每天從 GitHub 下載一次公開價目表，新模型毋須更新 App 也能顯示 API 價值。不會傳送任何用量資料。",
         pricesFromFormat: "%@的價目表",
@@ -1752,11 +1744,19 @@ extension NotchAgentStrings {
         refreshTitle: "重新整理 AI 用量",
         refreshHelp: "重新整理用量、花費和額度。進行中的工作階段會自動更新。",
         claudeRefreshStale: "尚無更新的 Claude 額度回報。Claude Code 回報新的用量時，額度才會更新。",
-        statusLineTitle: "來自 Claude Code 的即時額度",
         statusLineHint: "選用。Claude Code 可以透過狀態列把你的方案額度傳給 Vorssaint，讓額度在你使用時保持最新。不會傳送任何內容：一個小腳本會把百分比儲存在此 App 的資料夾中。複製設定並加入 ~/.claude/settings.json。",
         statusLineReceivedFormat: "上次接收：%@。",
-        statusLineNone: "尚未收到",
         statusLineCopy: "複製設定",
         statusLineCopied: "已複製。請加入 ~/.claude/settings.json。",
-        statusLineHelp: "額度來自 Claude Code 傳送到狀態列的最新回報。重新整理只會重新檢查該回報，無法讓 Claude Code 傳送新的回報。")
+        statusLineHelp: "額度來自 Claude Code 傳送到狀態列的最新回報。重新整理只會重新檢查該回報，無法讓 Claude Code 傳送新的回報。",
+        integrationTitle: "Claude Code 整合",
+        integrationConnected: "已連線",
+        integrationConnectedDetail: "Claude Code 會透過狀態列在本機回報你的方案額度。Vorssaint 不會存取你的 Claude 憑證。",
+        integrationWaitingDetail: "正在等待 Claude Code 回報額度。在 Claude Code 中傳送一則訊息即可收到第一次回報。",
+        integrationSetupRequired: "需要設定",
+        integrationRepairNeeded: "需要修復",
+        integrationRepairNeededDetail: "Vorssaint 無法更新其腳本。請嘗試「修復 / 更新」。",
+        integrationRepair: "修復 / 更新",
+        lastRefreshFormat: "上次重新整理：%@",
+        fallbackFormat: "備用：Claude App 記錄，最近一次回報 %@")
 }

@@ -26,6 +26,12 @@ final class AgentUsageService: ObservableObject {
     @Published private(set) var pricesUpdated: Date?
     /// True from a request to refresh until the snapshot it produced is handed over.
     @Published private(set) var isRefreshing = false
+    /// When the person last asked for a refresh. Only that action's time: it
+    /// says nothing about what any provider reported.
+    @Published private(set) var lastManualRefreshAt: Date?
+    /// When Claude Code's status line last reported the limits; nil when it
+    /// has not, or Claude is off.
+    @Published private(set) var claudeReported: Date?
     /// When Claude last reported its limits, if the last refresh found no
     /// newer report than that. Told apart from a newer one by comparing with
     /// the limits shown. Nil when the refresh found something new.
@@ -119,6 +125,10 @@ final class AgentUsageService: ObservableObject {
             cancellation = Cancellation()
             providers = wanted
             start(session: session, providers: Set(wanted), cancellation: cancellation)
+            // Keeps this app's status line script current once it is in use.
+            if wanted.contains(.claude) {
+                DispatchQueue.global(qos: .utility).async { AgentClaudeIntegration.inspect(received: nil) }
+            }
         } else if paused {
             resume()
         }
@@ -170,6 +180,8 @@ final class AgentUsageService: ObservableObject {
         pricesInFlight = false
         pricesSaved = nil
         isRefreshing = false
+        lastManualRefreshAt = nil
+        claudeReported = nil
         claudeUnchangedAfterRefresh = nil
         snapshot = AgentUsageSnapshot()
         claudeAppChecked = nil
@@ -231,6 +243,7 @@ final class AgentUsageService: ObservableObject {
     func refreshUsage() {
         guard running, !paused, !isRefreshing else { return }
         isRefreshing = true
+        lastManualRefreshAt = Date()
         let session = self.session
         checkCodexAccount()
         queue.async { [self] in
@@ -604,11 +617,13 @@ final class AgentUsageService: ObservableObject {
         published = next
         checkBudget(next)
         let checked = latestClaudeAppReading()
+        let reported = enabled.contains(.claude) ? claudeStatusReading?.date : nil
         let listed = AgentPricing.list.updated
         let prices = listed == AgentPriceList.empty.updated ? nil : listed
         DispatchQueue.main.async { [weak self] in
             guard let self, self.running, self.session == session else { return }
             if self.claudeAppChecked != checked { self.claudeAppChecked = checked }
+            if self.claudeReported != reported { self.claudeReported = reported }
             if self.pricesUpdated != prices { self.pricesUpdated = prices }
             if self.snapshot != next { self.snapshot = next }
         }

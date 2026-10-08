@@ -106,6 +106,7 @@ struct NotchAgentStrings {
     let statusLineNone: String
     let statusLineCopy: String
     let statusLineCopied: String
+    let statusLineHelp: String
 
     func tokens(_ count: String) -> String { String(format: tokensFormat, count) }
     func cached(_ share: String) -> String { String(format: cachedFormat, share) }
@@ -280,13 +281,14 @@ extension NotchAgentStrings {
         resetsHelp: "A reset renews the Codex session and weekly limits at once. Codex checks your resets with its own sign-in, which Vorssaint never reads.",
         refreshTitle: "Refresh AI usage",
         refreshHelp: "Refresh usage, spending and limits. Live sessions update automatically.",
-        claudeRefreshStale: "Claude has not reported newer usage data yet. Vorssaint shows the latest data Claude has reported.",
+        claudeRefreshStale: "No newer Claude limit report yet. Limits update when Claude Code reports new usage.",
         statusLineTitle: "Live limits from Claude Code",
         statusLineHint: "Optional. Claude Code can pass your plan limits to Vorssaint through its status line, so they stay current while you use it. Nothing is sent: a small script saves the percentages in this app’s folder. Copy the setup and add it to ~/.claude/settings.json.",
         statusLineReceivedFormat: "Last received %@.",
         statusLineNone: "Nothing received yet",
         statusLineCopy: "Copy setup",
-        statusLineCopied: "Copied. Add it to ~/.claude/settings.json.")
+        statusLineCopied: "Copied. Add it to ~/.claude/settings.json.",
+        statusLineHelp: "Limits come from the latest report Claude Code sends to its status line. Refresh re-checks that report; it cannot make Claude Code send a new one.")
 
     static let uk = NotchAgentStrings(
         title: "ШІ-агенти",
@@ -384,13 +386,14 @@ extension NotchAgentStrings {
         resetsHelp: "Скидання одразу поновлює ліміти сеансу й тижня Codex. Codex перевіряє ваші скидання через власний вхід, який Vorssaint ніколи не читає.",
         refreshTitle: "Оновити використання ШІ",
         refreshHelp: "Оновити використання, витрати й ліміти. Активні сеанси оновлюються автоматично.",
-        claudeRefreshStale: "Claude ще не повідомив новіших даних про використання. Vorssaint показує останні дані, які повідомив Claude.",
+        claudeRefreshStale: "Новішого звіту про ліміти Claude ще немає. Ліміти оновлюються, коли Claude Code повідомляє про нове використання.",
         statusLineTitle: "Актуальні ліміти від Claude Code",
         statusLineHint: "Необов’язково. Claude Code може передавати Vorssaint ваші ліміти плану через свій рядок стану, щоб вони були актуальними, поки ви ним користуєтесь. Нічого не надсилається: невеликий скрипт зберігає відсотки в папці цього застосунку. Скопіюйте налаштування й додайте його до ~/.claude/settings.json.",
         statusLineReceivedFormat: "Востаннє отримано %@.",
         statusLineNone: "Ще нічого не отримано",
         statusLineCopy: "Копіювати налаштування",
-        statusLineCopied: "Скопійовано. Додайте до ~/.claude/settings.json.")
+        statusLineCopied: "Скопійовано. Додайте до ~/.claude/settings.json.",
+        statusLineHelp: "Ліміти беруться з останнього звіту, який Claude Code надсилає в рядок стану. «Оновити» перевіряє цей звіт ще раз, але не може змусити Claude Code надіслати новий.")
 
     static let ptBR = NotchAgentStrings(
         title: "Agentes de IA",
@@ -488,13 +491,14 @@ extension NotchAgentStrings {
         resetsHelp: "Uma redefinição renova de uma vez os limites da sessão e da semana do Codex. O Codex verifica suas redefinições com o próprio login, que o Vorssaint nunca lê.",
         refreshTitle: "Atualizar uso de IA",
         refreshHelp: "Atualiza uso, gastos e limites. Sessões ativas se atualizam sozinhas.",
-        claudeRefreshStale: "O Claude ainda não informou dados de uso mais recentes. O Vorssaint mostra os dados mais recentes informados pelo Claude.",
+        claudeRefreshStale: "Ainda não há um relatório de limites mais recente do Claude. Os limites se atualizam quando o Claude Code informa novo uso.",
         statusLineTitle: "Limites ao vivo do Claude Code",
         statusLineHint: "Opcional. O Claude Code pode passar os limites do seu plano ao Vorssaint pela linha de status, mantendo-os atualizados enquanto você o usa. Nada é enviado: um pequeno script salva as porcentagens na pasta deste app. Copie a configuração e adicione-a a ~/.claude/settings.json.",
         statusLineReceivedFormat: "Último recebimento: %@.",
         statusLineNone: "Nada recebido ainda",
         statusLineCopy: "Copiar configuração",
-        statusLineCopied: "Copiado. Adicione a ~/.claude/settings.json.")
+        statusLineCopied: "Copiado. Adicione a ~/.claude/settings.json.",
+        statusLineHelp: "Os limites vêm do último relatório que o Claude Code envia à linha de status. Atualizar verifica esse relatório de novo, mas não faz o Claude Code enviar outro.")
 
     static let es = NotchAgentStrings(
         title: "Agentes de IA",
@@ -592,13 +596,14 @@ extension NotchAgentStrings {
         resetsHelp: "Un reinicio renueva a la vez los límites de la sesión y de la semana de Codex. Codex comprueba tus reinicios con su propio inicio de sesión, que Vorssaint nunca lee.",
         refreshTitle: "Actualizar uso de IA",
         refreshHelp: "Actualiza el uso, el gasto y los límites. Las sesiones activas se actualizan solas.",
-        claudeRefreshStale: "Claude aún no ha informado de datos de uso más recientes. Vorssaint muestra los últimos datos que Claude ha informado.",
+        claudeRefreshStale: "Aún no hay un informe de límites más reciente de Claude. Los límites se actualizan cuando Claude Code informa de nuevo uso.",
         statusLineTitle: "Límites en vivo de Claude Code",
         statusLineHint: "Opcional. Claude Code puede pasar los límites de tu plan a Vorssaint mediante su línea de estado, para que estén al día mientras lo usas. No se envía nada: un pequeño script guarda los porcentajes en la carpeta de esta app. Copia la configuración y añádela a ~/.claude/settings.json.",
         statusLineReceivedFormat: "Última recepción: %@.",
         statusLineNone: "Aún no se ha recibido nada",
         statusLineCopy: "Copiar configuración",
-        statusLineCopied: "Copiado. Añádela a ~/.claude/settings.json.")
+        statusLineCopied: "Copiado. Añádela a ~/.claude/settings.json.",
+        statusLineHelp: "Los límites vienen del último informe que Claude Code envía a su línea de estado. Actualizar vuelve a revisarlo, pero no puede hacer que Claude Code envíe uno nuevo.")
 
     static let sk = NotchAgentStrings(
         title: "AI agenti",
@@ -696,13 +701,14 @@ extension NotchAgentStrings {
         resetsHelp: "Obnovenie naraz obnoví limity relácie aj týždňa v Codexe. Codex kontroluje vaše obnovenia vlastným prihlásením, ktoré Vorssaint nikdy nečíta.",
         refreshTitle: "Obnoviť využitie AI",
         refreshHelp: "Obnoví využitie, výdavky a limity. Aktívne relácie sa aktualizujú automaticky.",
-        claudeRefreshStale: "Claude zatiaľ nenahlásil novšie údaje o využití. Vorssaint zobrazuje posledné údaje, ktoré Claude nahlásil.",
+        claudeRefreshStale: "Zatiaľ nie je novší report limitov Claude. Limity sa aktualizujú, keď Claude Code nahlási nové využitie.",
         statusLineTitle: "Aktuálne limity z Claude Code",
         statusLineHint: "Voliteľné. Claude Code môže odovzdávať limity vášho plánu aplikácii Vorssaint cez stavový riadok, aby boli aktuálne, kým ho používate. Nič sa neodosiela: malý skript ukladá percentá do priečinka tejto aplikácie. Skopírujte nastavenie a pridajte ho do ~/.claude/settings.json.",
         statusLineReceivedFormat: "Naposledy prijaté %@.",
         statusLineNone: "Zatiaľ nič neprijaté",
         statusLineCopy: "Kopírovať nastavenie",
-        statusLineCopied: "Skopírované. Pridajte do ~/.claude/settings.json.")
+        statusLineCopied: "Skopírované. Pridajte do ~/.claude/settings.json.",
+        statusLineHelp: "Limity pochádzajú z posledného reportu, ktorý Claude Code posiela do stavového riadka. Obnoviť ho len znova skontroluje, nenúti Claude Code poslať nový.")
 
     static let de = NotchAgentStrings(
         title: "KI-Agenten",
@@ -800,13 +806,14 @@ extension NotchAgentStrings {
         resetsHelp: "Eine Zurücksetzung erneuert das Sitzungs- und das Wochenlimit von Codex auf einmal. Codex prüft deine Zurücksetzungen mit seiner eigenen Anmeldung, die Vorssaint nie liest.",
         refreshTitle: "KI-Nutzung aktualisieren",
         refreshHelp: "Aktualisiert Nutzung, Ausgaben und Limits. Laufende Sitzungen aktualisieren sich automatisch.",
-        claudeRefreshStale: "Claude hat noch keine neueren Nutzungsdaten gemeldet. Vorssaint zeigt die letzten von Claude gemeldeten Daten.",
+        claudeRefreshStale: "Noch kein neuerer Claude-Limitbericht. Die Limits aktualisieren sich, wenn Claude Code neue Nutzung meldet.",
         statusLineTitle: "Aktuelle Limits von Claude Code",
         statusLineHint: "Optional. Claude Code kann die Limits deines Tarifs über seine Statuszeile an Vorssaint weitergeben, damit sie aktuell bleiben, solange du es nutzt. Es wird nichts gesendet: Ein kleines Skript speichert die Prozentwerte im Ordner dieser App. Kopiere die Einrichtung und füge sie in ~/.claude/settings.json ein.",
         statusLineReceivedFormat: "Zuletzt empfangen: %@.",
         statusLineNone: "Noch nichts empfangen",
         statusLineCopy: "Einrichtung kopieren",
-        statusLineCopied: "Kopiert. In ~/.claude/settings.json einfügen.")
+        statusLineCopied: "Kopiert. In ~/.claude/settings.json einfügen.",
+        statusLineHelp: "Die Limits stammen aus dem letzten Bericht, den Claude Code an seine Statuszeile sendet. Aktualisieren prüft ihn erneut, kann Claude Code aber nicht zu einem neuen bewegen.")
 
     static let fr = NotchAgentStrings(
         title: "Agents IA",
@@ -904,13 +911,14 @@ extension NotchAgentStrings {
         resetsHelp: "Une réinitialisation renouvelle d’un coup les limites de la session et de la semaine de Codex. Codex vérifie vos réinitialisations avec sa propre connexion, que Vorssaint ne lit jamais.",
         refreshTitle: "Actualiser l’utilisation de l’IA",
         refreshHelp: "Actualise l’utilisation, les dépenses et les limites. Les sessions en cours se mettent à jour automatiquement.",
-        claudeRefreshStale: "Claude n’a pas encore signalé de données d’utilisation plus récentes. Vorssaint affiche les dernières données signalées par Claude.",
+        claudeRefreshStale: "Pas encore de rapport de limites Claude plus récent. Les limites se mettent à jour quand Claude Code signale une nouvelle utilisation.",
         statusLineTitle: "Limites en direct de Claude Code",
         statusLineHint: "Facultatif. Claude Code peut transmettre les limites de votre forfait à Vorssaint par sa ligne d’état, pour qu’elles restent à jour pendant que vous l’utilisez. Rien n’est envoyé : un petit script enregistre les pourcentages dans le dossier de cette app. Copiez la configuration et ajoutez-la à ~/.claude/settings.json.",
         statusLineReceivedFormat: "Dernière réception : %@.",
         statusLineNone: "Rien reçu pour l’instant",
         statusLineCopy: "Copier la configuration",
-        statusLineCopied: "Copié. Ajoutez-le à ~/.claude/settings.json.")
+        statusLineCopied: "Copié. Ajoutez-le à ~/.claude/settings.json.",
+        statusLineHelp: "Les limites viennent du dernier rapport que Claude Code envoie à sa ligne d’état. Actualiser le relit, mais ne peut pas obliger Claude Code à en envoyer un nouveau.")
 
     static let it = NotchAgentStrings(
         title: "Agenti IA",
@@ -1008,13 +1016,14 @@ extension NotchAgentStrings {
         resetsHelp: "Un ripristino rinnova insieme i limiti della sessione e della settimana di Codex. Codex controlla i tuoi ripristini con il proprio accesso, che Vorssaint non legge mai.",
         refreshTitle: "Aggiorna l’uso dell’IA",
         refreshHelp: "Aggiorna uso, spesa e limiti. Le sessioni attive si aggiornano da sole.",
-        claudeRefreshStale: "Claude non ha ancora segnalato dati di utilizzo più recenti. Vorssaint mostra gli ultimi dati segnalati da Claude.",
+        claudeRefreshStale: "Nessun rapporto sui limiti di Claude più recente. I limiti si aggiornano quando Claude Code segnala nuovo utilizzo.",
         statusLineTitle: "Limiti in tempo reale da Claude Code",
         statusLineHint: "Facoltativo. Claude Code può passare a Vorssaint i limiti del tuo piano tramite la riga di stato, così restano aggiornati mentre lo usi. Non viene inviato nulla: un piccolo script salva le percentuali nella cartella di questa app. Copia la configurazione e aggiungila a ~/.claude/settings.json.",
         statusLineReceivedFormat: "Ultima ricezione: %@.",
         statusLineNone: "Ancora nulla ricevuto",
         statusLineCopy: "Copia configurazione",
-        statusLineCopied: "Copiato. Aggiungilo a ~/.claude/settings.json.")
+        statusLineCopied: "Copiato. Aggiungilo a ~/.claude/settings.json.",
+        statusLineHelp: "I limiti provengono dall’ultimo rapporto che Claude Code invia alla riga di stato. Aggiorna lo ricontrolla, ma non può far sì che Claude Code ne invii uno nuovo.")
 
     static let ru = NotchAgentStrings(
         title: "ИИ-агенты",
@@ -1112,13 +1121,14 @@ extension NotchAgentStrings {
         resetsHelp: "Сброс сразу обновляет лимиты сессии и недели Codex. Codex проверяет ваши сбросы через собственный вход, который Vorssaint никогда не читает.",
         refreshTitle: "Обновить использование ИИ",
         refreshHelp: "Обновляет использование, расходы и лимиты. Активные сеансы обновляются автоматически.",
-        claudeRefreshStale: "Claude пока не сообщил более свежих данных об использовании. Vorssaint показывает последние данные, которые сообщил Claude.",
+        claudeRefreshStale: "Более нового отчёта о лимитах Claude пока нет. Лимиты обновляются, когда Claude Code сообщает о новом использовании.",
         statusLineTitle: "Актуальные лимиты из Claude Code",
         statusLineHint: "Необязательно. Claude Code может передавать Vorssaint лимиты вашего тарифа через строку состояния, чтобы они оставались актуальными, пока вы им пользуетесь. Ничего не отправляется: небольшой скрипт сохраняет проценты в папке этого приложения. Скопируйте настройку и добавьте её в ~/.claude/settings.json.",
         statusLineReceivedFormat: "Последнее получение: %@.",
         statusLineNone: "Пока ничего не получено",
         statusLineCopy: "Скопировать настройку",
-        statusLineCopied: "Скопировано. Добавьте в ~/.claude/settings.json.")
+        statusLineCopied: "Скопировано. Добавьте в ~/.claude/settings.json.",
+        statusLineHelp: "Лимиты берутся из последнего отчёта, который Claude Code отправляет в строку состояния. «Обновить» перепроверяет этот отчёт, но не может заставить Claude Code прислать новый.")
 
     static let tr = NotchAgentStrings(
         title: "YZ Ajanları",
@@ -1216,13 +1226,14 @@ extension NotchAgentStrings {
         resetsHelp: "Bir sıfırlama, Codex’in oturum ve haftalık sınırlarını tek seferde yeniler. Codex sıfırlamalarınızı kendi oturum açma bilgisiyle denetler. Vorssaint bunu hiçbir zaman okumaz.",
         refreshTitle: "Yapay zekâ kullanımını yenile",
         refreshHelp: "Kullanımı, harcamayı ve sınırları yeniler. Canlı oturumlar kendiliğinden güncellenir.",
-        claudeRefreshStale: "Claude henüz daha yeni kullanım verisi bildirmedi. Vorssaint, Claude’un bildirdiği en son verileri gösterir.",
+        claudeRefreshStale: "Claude sınırları için daha yeni bir rapor henüz yok. Sınırlar, Claude Code yeni kullanım bildirdiğinde güncellenir.",
         statusLineTitle: "Claude Code’dan canlı sınırlar",
         statusLineHint: "İsteğe bağlı. Claude Code, plan sınırlarınızı durum satırı aracılığıyla Vorssaint’e aktarabilir; böylece onu kullanırken güncel kalırlar. Hiçbir şey gönderilmez: küçük bir betik yüzdeleri bu uygulamanın klasörüne kaydeder. Kurulumu kopyalayıp ~/.claude/settings.json dosyasına ekleyin.",
         statusLineReceivedFormat: "Son alınan: %@.",
         statusLineNone: "Henüz bir şey alınmadı",
         statusLineCopy: "Kurulumu kopyala",
-        statusLineCopied: "Kopyalandı. ~/.claude/settings.json dosyasına ekleyin.")
+        statusLineCopied: "Kopyalandı. ~/.claude/settings.json dosyasına ekleyin.",
+        statusLineHelp: "Sınırlar, Claude Code’un durum satırına gönderdiği son rapordan gelir. Yenile bu raporu yeniden denetler; Claude Code’a yeni rapor gönderttiremez.")
 
     static let ja = NotchAgentStrings(
         title: "AIエージェント",
@@ -1320,13 +1331,14 @@ extension NotchAgentStrings {
         resetsHelp: "リセットを使うと、Codexのセッションと週の上限が同時に回復します。Codexは独自のサインイン情報でリセットを確認し、Vorssaintがそれを読み取ることはありません。",
         refreshTitle: "AI使用状況を更新",
         refreshHelp: "使用量、支出、上限を更新します。実行中のセッションは自動で更新されます。",
-        claudeRefreshStale: "Claudeからまだ新しい使用状況は報告されていません。Vorssaintには、Claudeが最後に報告したデータを表示しています。",
+        claudeRefreshStale: "Claudeの上限について、より新しいレポートはまだありません。上限は、Claude Codeが新しい使用状況を報告すると更新されます。",
         statusLineTitle: "Claude Codeからのリアルタイムの上限",
         statusLineHint: "任意です。Claude Codeはステータスラインを通じてプランの上限をVorssaintに渡せるため、使用中は最新の状態に保たれます。何も送信されません。小さなスクリプトがこのアプリのフォルダにパーセンテージを保存します。設定をコピーして ~/.claude/settings.json に追加してください。",
         statusLineReceivedFormat: "最後の受信: %@",
         statusLineNone: "まだ受信していません",
         statusLineCopy: "設定をコピー",
-        statusLineCopied: "コピーしました。~/.claude/settings.json に追加してください。")
+        statusLineCopied: "コピーしました。~/.claude/settings.json に追加してください。",
+        statusLineHelp: "上限は、Claude Codeがステータスラインに送った最新のレポートから取得します。更新はそのレポートを再確認するだけで、Claude Codeに新しいレポートを送らせることはできません。")
 
     static let ko = NotchAgentStrings(
         title: "AI 에이전트",
@@ -1424,13 +1436,14 @@ extension NotchAgentStrings {
         resetsHelp: "초기화를 사용하면 Codex의 세션 및 주간 한도가 한 번에 갱신됩니다. Codex는 자체 로그인으로 초기화를 확인하며, Vorssaint는 이를 읽지 않습니다.",
         refreshTitle: "AI 사용량 새로고침",
         refreshHelp: "사용량, 지출, 한도를 새로고칩니다. 진행 중인 세션은 자동으로 업데이트됩니다.",
-        claudeRefreshStale: "Claude가 아직 더 새로운 사용량 데이터를 보고하지 않았습니다. Vorssaint는 Claude가 마지막으로 보고한 데이터를 표시합니다.",
+        claudeRefreshStale: "Claude 한도에 대한 더 새로운 보고가 아직 없습니다. 한도는 Claude Code가 새 사용량을 보고하면 업데이트됩니다.",
         statusLineTitle: "Claude Code 실시간 한도",
         statusLineHint: "선택 사항입니다. Claude Code가 상태 줄을 통해 요금제 한도를 Vorssaint에 전달해, 사용하는 동안 최신 상태로 유지됩니다. 아무것도 전송되지 않으며, 작은 스크립트가 이 앱의 폴더에 퍼센트를 저장합니다. 설정을 복사해 ~/.claude/settings.json에 추가하세요.",
         statusLineReceivedFormat: "마지막 수신: %@",
         statusLineNone: "아직 수신된 내용 없음",
         statusLineCopy: "설정 복사",
-        statusLineCopied: "복사했습니다. ~/.claude/settings.json에 추가하세요.")
+        statusLineCopied: "복사했습니다. ~/.claude/settings.json에 추가하세요.",
+        statusLineHelp: "한도는 Claude Code가 상태 줄로 보낸 최신 보고에서 가져옵니다. 새로고침은 그 보고를 다시 확인할 뿐, Claude Code가 새 보고를 보내게 할 수는 없습니다.")
 
     static let zhHans = NotchAgentStrings(
         title: "AI 智能体",
@@ -1528,13 +1541,14 @@ extension NotchAgentStrings {
         resetsHelp: "一次重置会同时恢复 Codex 的会话额度和每周额度。Codex 用自己的登录信息检查你的重置，Vorssaint 从不读取这些信息。",
         refreshTitle: "刷新 AI 用量",
         refreshHelp: "刷新用量、花费和额度。进行中的会话会自动更新。",
-        claudeRefreshStale: "Claude 尚未报告更新的用量数据。Vorssaint 显示的是 Claude 最近一次报告的数据。",
+        claudeRefreshStale: "暂无更新的 Claude 额度报告。Claude Code 报告新的用量时，额度才会更新。",
         statusLineTitle: "来自 Claude Code 的实时额度",
         statusLineHint: "可选。Claude Code 可以通过状态栏把你的套餐额度传给 Vorssaint，让额度在你使用时保持最新。不会发送任何内容：一个小脚本会把百分比保存在本应用的文件夹中。复制设置并添加到 ~/.claude/settings.json。",
         statusLineReceivedFormat: "上次接收：%@。",
         statusLineNone: "尚未收到",
         statusLineCopy: "复制设置",
-        statusLineCopied: "已复制。请添加到 ~/.claude/settings.json。")
+        statusLineCopied: "已复制。请添加到 ~/.claude/settings.json。",
+        statusLineHelp: "额度来自 Claude Code 发送到状态栏的最新报告。刷新只会重新检查该报告，无法让 Claude Code 发送新的报告。")
 
     static let zhTW = NotchAgentStrings(
         title: "AI 代理",
@@ -1632,13 +1646,14 @@ extension NotchAgentStrings {
         resetsHelp: "一次重設會同時恢復 Codex 的工作階段額度和每週額度。Codex 用自己的登入資訊檢查你的重設，Vorssaint 從不讀取這些資訊。",
         refreshTitle: "重新整理 AI 用量",
         refreshHelp: "重新整理用量、花費和額度。進行中的工作階段會自動更新。",
-        claudeRefreshStale: "Claude 尚未回報更新的用量資料。Vorssaint 顯示的是 Claude 最近一次回報的資料。",
+        claudeRefreshStale: "尚無更新的 Claude 額度回報。Claude Code 回報新的用量時，額度才會更新。",
         statusLineTitle: "來自 Claude Code 的即時額度",
         statusLineHint: "選用。Claude Code 可以透過狀態列把你的方案額度傳給 Vorssaint，讓額度在你使用時保持最新。不會傳送任何內容：一個小腳本會把百分比儲存在此 App 的資料夾中。複製設定並加入 ~/.claude/settings.json。",
         statusLineReceivedFormat: "上次接收：%@。",
         statusLineNone: "尚未收到",
         statusLineCopy: "複製設定",
-        statusLineCopied: "已複製。請加入 ~/.claude/settings.json。")
+        statusLineCopied: "已複製。請加入 ~/.claude/settings.json。",
+        statusLineHelp: "額度來自 Claude Code 傳送到狀態列的最新回報。重新整理只會重新檢查該回報，無法讓 Claude Code 傳送新的回報。")
 
     static let zhHK = NotchAgentStrings(
         title: "AI 代理",
@@ -1736,11 +1751,12 @@ extension NotchAgentStrings {
         resetsHelp: "一次重設會同時恢復 Codex 的工作階段額度和每週額度。Codex 用自己的登入資料檢查你的重設，Vorssaint 從不讀取這些資料。",
         refreshTitle: "重新整理 AI 用量",
         refreshHelp: "重新整理用量、花費和額度。進行中的工作階段會自動更新。",
-        claudeRefreshStale: "Claude 尚未回報更新的用量資料。Vorssaint 顯示的是 Claude 最近一次回報的資料。",
+        claudeRefreshStale: "尚無更新的 Claude 額度回報。Claude Code 回報新的用量時，額度才會更新。",
         statusLineTitle: "來自 Claude Code 的即時額度",
         statusLineHint: "選用。Claude Code 可以透過狀態列把你的方案額度傳給 Vorssaint，讓額度在你使用時保持最新。不會傳送任何內容：一個小腳本會把百分比儲存在此 App 的資料夾中。複製設定並加入 ~/.claude/settings.json。",
         statusLineReceivedFormat: "上次接收：%@。",
         statusLineNone: "尚未收到",
         statusLineCopy: "複製設定",
-        statusLineCopied: "已複製。請加入 ~/.claude/settings.json。")
+        statusLineCopied: "已複製。請加入 ~/.claude/settings.json。",
+        statusLineHelp: "額度來自 Claude Code 傳送到狀態列的最新回報。重新整理只會重新檢查該回報，無法讓 Claude Code 傳送新的回報。")
 }

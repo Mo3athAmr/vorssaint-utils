@@ -64,7 +64,7 @@ enum AgentUsageRefreshTests {
         var store = AgentUsageStore()
         var claudePlan: AgentPlan?
         var claudeOrganization: String?
-        var claudeStaleAfterRefresh: Date?
+        var claudeUnchangedAfterRefresh: Date?
         var claudeStatusURL: URL?
         var claudeStatusModified: Date?
         var claudeStatusReading: AgentClaudeStatusLimits.Reading?
@@ -211,6 +211,74 @@ enum AgentUsageRefreshTests {
                         && FileManager.default.fileExists(atPath: data.path),
                      "a status line named as the argument still gets the whole input, and its output is shown")
 
+
+        // A refresh with no newer report from Claude Code keeps the report's own date.
+        let quiet = folder.appending(path: "status-quiet-file/\(AgentClaudeStatusLimits.fileName)")
+        let emptyHome = folder.appending(path: "status-quiet-home")
+        status(23, 22, ago: 24 * 60, to: quiet)
+        let waiting = Host()
+        waiting.home = emptyHome
+        waiting.claudeStatusURL = quiet
+        waiting.readClaudeApp(now: now)
+        let reported = waiting.store.limits[.claude]?.observedAt
+        suite.expect(reported != nil && abs(Date().timeIntervalSince(reported ?? Date()) - 24 * 60) < 5,
+                     "a report from 24 minutes ago is dated 24 minutes ago")
+        waiting.refreshUsage()
+        drain()
+        suite.expect(waiting.store.limits[.claude]?.observedAt == reported && waiting.snapshot.limits[.claude]?.observedAt == reported
+                        && used(waiting) == ["claude.fh": 23, "claude.sd": 22]
+                        && waiting.claudeUnchangedAfterRefresh == reported,
+                     "refreshing with no newer report leaves its date and values alone and says nothing newer came")
+        waiting.refreshUsage()
+        drain()
+        suite.expect(waiting.store.limits[.claude]?.observedAt == reported && waiting.claudeUnchangedAfterRefresh == reported
+                        && waiting.codexChecks == 2,
+                     "refreshing again still does not make the report newer, while Codex is asked every time")
+        status(25, 23, ago: 5, to: quiet)
+        waiting.refreshUsage()
+        drain()
+        let fresher = waiting.store.limits[.claude]?.observedAt
+        suite.expect(used(waiting) == ["claude.fh": 25, "claude.sd": 23] && fresher != reported
+                        && abs(Date().timeIntervalSince(fresher ?? .distantPast) - 5) < 5
+                        && waiting.claudeUnchangedAfterRefresh == nil,
+                     "a newer report brings its values, dates them as reported and clears the note")
+        // The ordinary look picks it up too, with no refresh.
+        status(26, 24, ago: 1, to: quiet, modified: Date().addingTimeInterval(2))
+        waiting.readClaudeApp(now: Date())
+        suite.expect(used(waiting) == ["claude.fh": 26, "claude.sd": 24],
+                     "the ordinary look notices a newer report without a refresh")
+
+        // The script run again without a new report keeps the report's time.
+        func aging(_ seconds: Double) {
+            guard var json = (try? JSONSerialization.jsonObject(with: Data(contentsOf: data))) as? [String: Any] else { return }
+            json["t"] = Int(Date().timeIntervalSince1970 - seconds)
+            try? JSONSerialization.data(withJSONObject: json).write(to: data)
+        }
+        func savedTime() -> Double? {
+            ((try? JSONSerialization.jsonObject(with: Data(contentsOf: data))) as? [String: Any])?["t"] as? Double
+        }
+        func variant(_ extra: String, spent: Int) -> String {
+            #"{"model":{"id":"m"},"session_id":"s","vim":"\#(extra)","cost":{"total_api_duration_ms":\#(spent)},"rate_limits":{"five_hour":{"used_percentage":23.5,"resets_at":\#(Int(now.timeIntervalSince1970) + 7200)}}}"#
+        }
+        try? FileManager.default.removeItem(at: data)
+        _ = run(variant("a", spent: 1000))
+        aging(600)
+        let before = savedTime()
+        _ = run(variant("b", spent: 1000))
+        suite.expect(before != nil && savedTime() == before,
+                     "the script run again for another reason, with the same report and no new response, keeps the report's time")
+        _ = run(variant("b", spent: 2500))
+        suite.expect((savedTime() ?? 0) > (before ?? 0) + 500,
+                     "a new response, even with the same percentages, moves the time")
+        aging(600)
+        let again = savedTime()
+        let changed = run(#"{"session_id":"s","cost":{"total_api_duration_ms":2500},"rate_limits":{"five_hour":{"used_percentage":30,"resets_at":\#(Int(now.timeIntervalSince1970) + 7200)}}}"#)
+        suite.expect(changed.status == 0 && (savedTime() ?? 0) > (again ?? 0) + 500,
+                     "a changed report moves the time")
+        let rawAfter = String(decoding: (try? Data(contentsOf: data)) ?? Data(), as: UTF8.self)
+        suite.expect(!rawAfter.contains("vim") && !rawAfter.contains("model") && rawAfter.contains("\"mark\""),
+                     "only the limits, their time and a change marker are kept")
+
         // The reader.
         let sample = Data(#"{"version":1,"t":\#(Int(now.timeIntervalSince1970) - 60),"rate_limits":{"five_hour":{"used_percentage":5,"resets_at":\#(Int(now.timeIntervalSince1970) + 600)},"seven_day":{"used_percentage":150,"resets_at":\#(Int(now.timeIntervalSince1970) - 5)}}}"#.utf8)
         let reading = AgentClaudeStatusLimits.reading(from: sample)
@@ -241,7 +309,7 @@ enum AgentUsageRefreshTests {
         host.refreshUsage()
         drain()
         suite.expect(used(host) == ["claude.fh": 5, "claude.sd": 19] && host.store.limits[.claude]?.source == .account
-                        && host.claudeStaleAfterRefresh == nil
+                        && host.claudeUnchangedAfterRefresh == nil
                         && host.snapshot.limits[.claude]?.windows.map(\.remainingFraction).sorted() == [0.81, 0.95]
                         && Date().timeIntervalSince(host.store.limits[.claude]?.observedAt ?? Date()) >= 29,
                      "Claude Code's newer reading shows its session and week, dated when it was saved, and nothing is reported old")
@@ -275,9 +343,10 @@ enum AgentUsageRefreshTests {
         let old = Host()
         old.home = aged
         old.claudeStatusURL = agedURL
+        old.readClaudeApp(now: now)
         old.refreshUsage()
         drain()
-        suite.expect(old.claudeStaleAfterRefresh == old.store.limits[.claude]?.observedAt && old.claudeStaleAfterRefresh != nil
+        suite.expect(old.claudeUnchangedAfterRefresh == old.store.limits[.claude]?.observedAt && old.claudeUnchangedAfterRefresh != nil
                         && used(old) == ["claude.fh": 10, "claude.sd": 30],
                      "a status reading hours old is shown with its own date and reported old by a refresh")
         let off = Host()
@@ -476,7 +545,7 @@ enum AgentUsageRefreshTests {
                      "a day-old reading keeps its week and drops a session that ended long ago")
         old.refreshUsage()
         drain()
-        suite.expect(old.claudeStaleAfterRefresh == sampleDate && old.store.limits[.claude]?.observedAt == sampleDate
+        suite.expect(old.claudeUnchangedAfterRefresh == sampleDate && old.store.limits[.claude]?.observedAt == sampleDate
                         && old.snapshot.limits[.claude]?.observedAt == sampleDate && used(old) == ["claude.sd": 15]
                         && !old.isRefreshing,
                      "a refresh that finds the Claude app's reading old keeps its values and its date, and reports it old")
@@ -485,15 +554,16 @@ enum AgentUsageRefreshTests {
         old.refreshUsage()
         drain()
         let newer = old.claudeAppSamples.last?.date
-        suite.expect(used(old) == ["claude.fh": 5, "claude.sd": 19] && old.claudeStaleAfterRefresh == nil
+        suite.expect(used(old) == ["claude.fh": 5, "claude.sd": 19] && old.claudeUnchangedAfterRefresh == nil
                         && newer != sampleDate && old.store.limits[.claude]?.observedAt == newer
                         && Date().timeIntervalSince(newer ?? Date()) >= 29
                         && old.snapshot.limits[.claude]?.windows.map(\.remainingFraction).sorted() == [0.81, 0.95],
                      "a newer saved reading brings back the session and updates the week, dated when Claude saved it, not when refreshed")
         old.refreshUsage()
         drain()
-        suite.expect(old.claudeStaleAfterRefresh == nil && old.store.limits[.claude]?.observedAt == newer,
-                     "refreshing a recent reading again neither reports it old nor changes its date")
+        suite.expect(old.claudeUnchangedAfterRefresh == newer && old.store.limits[.claude]?.observedAt == newer
+                        && old.snapshot.limits[.claude]?.observedAt == newer,
+                     "refreshing again with nothing newer keeps the reading's own date and reports that nothing newer came")
 
         // The ordinary look the service takes every thirty seconds notices a
         // newer reading by itself: no second refresh clears the finding.
@@ -501,9 +571,10 @@ enum AgentUsageRefreshTests {
         history([(21 * 3600, 8, 15)], to: autoHome, modified: now.addingTimeInterval(-21 * 3600))
         let auto = Host()
         auto.home = autoHome
+        auto.readClaudeApp(now: now)
         auto.refreshUsage()
         drain()
-        let foundOld = auto.claudeStaleAfterRefresh
+        let foundOld = auto.claudeUnchangedAfterRefresh
         suite.expect(foundOld != nil && AgentClaudeAppUsage.isStillOld(foundOld: foundOld, latest: auto.latestClaudeAppReading())
                         && used(auto) == ["claude.sd": 15],
                      "a refresh that finds the reading old leaves the finding standing for that reading")
@@ -511,7 +582,7 @@ enum AgentUsageRefreshTests {
         auto.readClaudeApp(now: Date())
         auto.checkLimits()
         auto.publish()
-        suite.expect(!AgentClaudeAppUsage.isStillOld(foundOld: auto.claudeStaleAfterRefresh, latest: auto.latestClaudeAppReading())
+        suite.expect(!AgentClaudeAppUsage.isStillOld(foundOld: auto.claudeUnchangedAfterRefresh, latest: auto.latestClaudeAppReading())
                         && used(auto) == ["claude.fh": 5, "claude.sd": 19]
                         && auto.snapshot.limits[.claude]?.observedAt == auto.latestClaudeAppReading()
                         && auto.latestClaudeAppReading() != foundOld,
@@ -526,18 +597,19 @@ enum AgentUsageRefreshTests {
         let mixed = Host()
         mixed.home = mixedHome
         mixed.claudeOrganization = "org-a"
+        mixed.readClaudeApp(now: now)
         mixed.refreshUsage()
         drain()
         suite.expect(used(mixed) == ["claude.sd": 15]
-                        && mixed.claudeStaleAfterRefresh == mixed.claudeAppSamples.first(where: { $0.organization == "org-a" })?.date
-                        && mixed.claudeStaleAfterRefresh != nil,
+                        && mixed.claudeUnchangedAfterRefresh == mixed.claudeAppSamples.first(where: { $0.organization == "org-a" })?.date
+                        && mixed.claudeUnchangedAfterRefresh != nil,
                      "a newer reading of another account never replaces this account's, which is reported old")
         let off = Host()
         off.home = oldHome
         off.enabled = []
         off.refreshUsage()
         drain()
-        suite.expect(off.claudeStaleAfterRefresh == nil, "with Claude off a refresh reports nothing about it")
+        suite.expect(off.claudeUnchangedAfterRefresh == nil, "with Claude off a refresh reports nothing about it")
 
 
         statusLine(suite, folder: folder, drain: drain)

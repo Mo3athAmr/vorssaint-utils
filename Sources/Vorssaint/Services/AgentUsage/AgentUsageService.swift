@@ -26,10 +26,10 @@ final class AgentUsageService: ObservableObject {
     @Published private(set) var pricesUpdated: Date?
     /// True from a request to refresh until the snapshot it produced is handed over.
     @Published private(set) var isRefreshing = false
-    /// The Claude app's newest reading when the last refresh found it still
-    /// old, so it has not checked since: told apart from a newer reading by
-    /// comparing with `claudeAppChecked`. Nil when it was recent.
-    @Published private(set) var claudeStaleAfterRefresh: Date?
+    /// When Claude last reported its limits, if the last refresh found no
+    /// newer report than that. Told apart from a newer one by comparing with
+    /// the limits shown. Nil when the refresh found something new.
+    @Published private(set) var claudeUnchangedAfterRefresh: Date?
     let events = PassthroughSubject<AgentUsageEvent, Never>()
 
     /// The history the island can show: thirteen weeks for the activity map.
@@ -170,7 +170,7 @@ final class AgentUsageService: ObservableObject {
         pricesInFlight = false
         pricesSaved = nil
         isRefreshing = false
-        claudeStaleAfterRefresh = nil
+        claudeUnchangedAfterRefresh = nil
         snapshot = AgentUsageSnapshot()
         claudeAppChecked = nil
         queue.async { [self] in
@@ -234,11 +234,17 @@ final class AgentUsageService: ObservableObject {
         let session = self.session
         checkCodexAccount()
         queue.async { [self] in
-            let stale = readerSession == session ? refreshSources(now: Date()) : nil
+            var unchanged: Date?
+            if readerSession == session {
+                let before = latestClaudeLimitsReading()
+                refreshSources(now: Date())
+                let after = latestClaudeLimitsReading()
+                unchanged = before != nil && before == after ? after : nil
+            }
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.session == session else { return }
                 self.isRefreshing = false
-                if self.claudeStaleAfterRefresh != stale { self.claudeStaleAfterRefresh = stale }
+                if self.claudeUnchangedAfterRefresh != unchanged { self.claudeUnchangedAfterRefresh = unchanged }
             }
         }
     }
@@ -254,19 +260,15 @@ final class AgentUsageService: ObservableObject {
     /// looked at, then hands the result over at once. The price list in use
     /// prices whatever is read, as always; none is downloaded. A source that
     /// cannot be read keeps what it gave before. Claude reports its limits
-    /// only on its own schedule, which nothing here can start, so a reading
-    /// that is still old is not made newer: the answer is its date, for the
-    /// page to say so. Runs on `queue`.
-    private func refreshSources(now: Date) -> Date? {
-        guard readerSession >= 0 else { return nil }
+    /// only when Claude Code does, which nothing here can ask for, so the
+    /// latest report is read again and keeps its own date. Runs on `queue`.
+    private func refreshSources(now: Date) {
+        guard readerSession >= 0 else { return }
         catchUpLogs()
         readClaudePlan()
         readClaudeApp(now: now)
         checkLimits()
         publish()
-        guard let reading = latestClaudeLimitsReading(),
-              now.timeIntervalSince(reading) >= AgentClaudeAppUsage.freshness else { return nil }
-        return reading
     }
 
     /// When the Claude app saved the reading of the account Claude Code uses;

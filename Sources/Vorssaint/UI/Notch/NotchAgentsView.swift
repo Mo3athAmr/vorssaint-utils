@@ -83,7 +83,7 @@ struct NotchAgentsView: View {
                 NotchAgentLimitsCard(provider: provider, snapshot: snapshot, now: now,
                                      display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining, text: text,
                                      appStale: provider == .claude && AgentClaudeAppUsage.isStillOld(
-                                         foundOld: usage.claudeStaleAfterRefresh,
+                                         foundOld: usage.claudeUnchangedAfterRefresh,
                                          latest: snapshot.limits[.claude]?.observedAt))
             }
         case .spend:

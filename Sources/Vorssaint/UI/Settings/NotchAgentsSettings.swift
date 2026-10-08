@@ -206,6 +206,7 @@ struct NotchAgentsSettingsControls: View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(statusLineReceived.map { text.statusLineReceived(relative($0, now: Date())) } ?? text.statusLineNone)
                 .font(.callout)
+                .help(text.statusLineHelp)
             Spacer(minLength: 8)
             Button(text.statusLineCopy) { copyStatusLineSetup() }
         }

@@ -8,8 +8,11 @@ import Foundation
 /// script this app offers saves just those, with the time it ran, in a small
 /// file in the app's folder, and this reads it. It is Claude Code's own
 /// documented way to share them: no sign-in, keychain item or token is used,
-/// and nothing is sent. The file is only as current as Claude Code's last
-/// response, so a reading carries the time it was saved, never a later one.
+/// and nothing is sent. Claude Code runs the script for many reasons besides
+/// a new response, always with the limits it last received, so the time kept
+/// is when that report changed or a new response arrived, never when the
+/// script merely ran again. The file is only as current as Claude Code's
+/// last response.
 enum AgentClaudeStatusLimits {
     static let fileName = "claude-rate-limits.json"
     static let scriptName = "claude-statusline.sh"
@@ -82,16 +85,25 @@ enum AgentClaudeStatusLimits {
     # passes the session as JSON on stdin. Only the plan limits it reports
     # (percentages used and renewal times) are kept, in a file beside this
     # script that Vorssaint reads. Nothing is sent anywhere.
+    # Claude Code also runs it for other reasons, such as a changed mode, with
+    # the limits it last received. The time kept moves only when the report
+    # changes or a new response arrived (its API time grew), not on each run.
     # To keep a status line of your own, name it as the argument:
     #   claude-statusline.sh /path/to/your-statusline.sh
     input=$(cat)
     dir=$(cd "$(dirname "$0")" && pwd) || exit 0
     limits=$(printf '%s' "$input" | /usr/bin/plutil -extract rate_limits json -o - - 2>/dev/null)
     if [ -n "$limits" ]; then
-      umask 077
-      tmp="$dir/.claude-rate-limits.$$"
-      printf '{"version":1,"t":%s,"rate_limits":%s}\\n' "$(date +%s)" "$limits" > "$tmp" \\
-        && mv -f "$tmp" "$dir/\(fileName)"
+      file="$dir/\(fileName)"
+      session=$(printf '%s' "$input" | /usr/bin/plutil -extract session_id raw -o - - 2>/dev/null)
+      spent=$(printf '%s' "$input" | /usr/bin/plutil -extract cost.total_api_duration_ms raw -o - - 2>/dev/null)
+      mark=$(printf '%s|%s|%s' "$session" "$spent" "$limits" | /usr/bin/cksum | /usr/bin/cut -d' ' -f1)
+      if [ "$(/usr/bin/plutil -extract mark raw -o - "$file" 2>/dev/null)" != "$mark" ]; then
+        umask 077
+        tmp="$dir/.claude-rate-limits.$$"
+        printf '{"version":1,"mark":"%s","t":%s,"rate_limits":%s}\n' "$mark" "$(date +%s)" "$limits" > "$tmp" \
+          && mv -f "$tmp" "$file"
+      fi
     fi
     if [ $# -gt 0 ]; then printf '%s' "$input" | "$@"; fi
 

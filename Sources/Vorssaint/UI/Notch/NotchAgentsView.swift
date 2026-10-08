@@ -81,7 +81,9 @@ struct NotchAgentsView: View {
         case .limits:
             if let provider = tile.provider {
                 NotchAgentLimitsCard(provider: provider, snapshot: snapshot, now: now,
-                                     display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining, text: text)
+                                     display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining, text: text,
+                                     appStale: provider == .claude && usage.claudeStaleAfterRefresh != nil
+                                         && usage.claudeStaleAfterRefresh == usage.claudeAppChecked)
             }
         case .spend:
             NotchAgentSpendCard(snapshot: snapshot, providers: providers, period: $period, text: text)
@@ -126,6 +128,10 @@ private struct NotchAgentLimitsCard: View {
     let now: Date
     let display: NotchAgentLimitDisplay
     let text: NotchAgentStrings
+    /// A refresh the person asked for found the Claude app's reading still
+    /// old: it saves one only while it polls, which opening its menu-bar
+    /// icon starts again. True only while that same reading is the latest.
+    var appStale = false
     @Environment(\.locale) private var locale
 
     /// A reading the Claude app saved a while ago: still the latest known,
@@ -170,7 +176,13 @@ private struct NotchAgentLimitsCard: View {
 
     /// How old a reading is, once it is old enough to have missed use elsewhere.
     @ViewBuilder private var caption: some View {
-        if let observed = snapshot.limits[provider]?.observedAt, now.timeIntervalSince(observed) > 600 {
+        if appStale {
+            Text(text.claudeRefreshStale)
+                .font(.system(size: 9.5))
+                .foregroundStyle(provider.tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        } else if let observed = snapshot.limits[provider]?.observedAt, now.timeIntervalSince(observed) > 600 {
             Text(text.updated(observed.formatted(.relative(presentation: .named, unitsStyle: .abbreviated)
                 .locale(locale))))
                 .font(.system(size: 9.5))
@@ -244,6 +256,7 @@ private struct NotchAgentLimitsCard: View {
         if let observed = snapshot.limits[provider]?.observedAt, now.timeIntervalSince(observed) > 600 {
             parts.append(text.updated(observed.formatted(.relative(presentation: .named).locale(locale))))
         }
+        if appStale { parts.append(text.claudeRefreshStale) }
         return parts.joined(separator: " · ")
     }
 
@@ -270,10 +283,10 @@ private struct NotchAgentLimitsCard: View {
                                 tint: provider.tint, height: 4, dimmed: true)
             }
             .help(text.estimated)
-            setUpLimits
+            if appStale { caption } else { setUpLimits }
         } else if provider == .claude {
             Text(text.noSession).font(.system(size: 10.5)).foregroundStyle(.secondary)
-            setUpLimits
+            if appStale { caption } else { setUpLimits }
         } else if provider == .opencode {
             let todayUsage = snapshot.usage(.today).byProvider[.opencode]
             if let todayUsage, todayUsage.tokens.total > 0 || todayUsage.requests > 0 || todayUsage.cost > 0 {

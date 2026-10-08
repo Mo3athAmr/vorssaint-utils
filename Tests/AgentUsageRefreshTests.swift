@@ -64,6 +64,7 @@ enum AgentUsageRefreshTests {
         var store = AgentUsageStore()
         var claudePlan: AgentPlan?
         var claudeOrganization: String?
+        var claudeStaleAfterRefresh: Date?
         var claudeAppModified: Date?
         var claudeAppSamples: [AgentClaudeAppUsage.Sample] = []
         var previousLimits: [AgentProvider: AgentLimits] = [:]
@@ -113,6 +114,17 @@ enum AgentUsageRefreshTests {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let entries = samples.map { sample in
             #"{"t":\#(Int((Date().timeIntervalSince1970 - sample.ago) * 1000)),"u":{"fh":\#(sample.session),"sd":\#(sample.week)}}"#
+        }
+        try? Data(#"{"version":2,"samples":[\#(entries.joined(separator: ","))]}"#.utf8).write(to: url)
+        try? FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: url.path)
+    }
+
+    private static func accounts(_ samples: [(ago: TimeInterval, org: String, session: Double, week: Double)],
+                                 to home: URL, modified: Date) {
+        let url = AgentClaudeAppUsage.historyURL(home: home)
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let entries = samples.map { sample in
+            #"{"t":\#(Int((Date().timeIntervalSince1970 - sample.ago) * 1000)),"org":"\#(sample.org)","u":{"fh":\#(sample.session),"sd":\#(sample.week)}}"#
         }
         try? Data(#"{"version":2,"samples":[\#(entries.joined(separator: ","))]}"#.utf8).write(to: url)
         try? FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: url.path)
@@ -295,6 +307,59 @@ enum AgentUsageRefreshTests {
             drain()
         }
         suite.expect(warnings(limited) == 2, "refreshing again, even from a file saved again, never repeats a warning already announced")
+
+        // Claude's own file is old: Claude saves a reading only while it polls,
+        // which a refresh cannot start. The old reading stays, with its own
+        // date, and the refresh says it found it old.
+        let oldHome = folder.appending(path: "old-home")
+        history([(21 * 3600, 8, 15)], to: oldHome, modified: now.addingTimeInterval(-21 * 3600))
+        let old = Host()
+        old.home = oldHome
+        old.readClaudeApp(now: now)
+        let sampleDate = old.claudeAppSamples.last?.date
+        let observed = old.store.limits[.claude]?.observedAt
+        suite.expect(sampleDate != nil && used(old) == ["claude.sd": 15] && observed == sampleDate,
+                     "a day-old reading keeps its week and drops a session that ended long ago")
+        old.refreshUsage()
+        drain()
+        suite.expect(old.claudeStaleAfterRefresh == sampleDate && old.store.limits[.claude]?.observedAt == sampleDate
+                        && old.snapshot.limits[.claude]?.observedAt == sampleDate && used(old) == ["claude.sd": 15]
+                        && !old.isRefreshing,
+                     "a refresh that finds the Claude app's reading old keeps its values and its date, and reports it old")
+        // Claude polls again and saves a newer reading: the refresh shows it as it dates.
+        history([(21 * 3600, 8, 15), (30, 5, 19)], to: oldHome, modified: now.addingTimeInterval(-20))
+        old.refreshUsage()
+        drain()
+        let newer = old.claudeAppSamples.last?.date
+        suite.expect(used(old) == ["claude.fh": 5, "claude.sd": 19] && old.claudeStaleAfterRefresh == nil
+                        && newer != sampleDate && old.store.limits[.claude]?.observedAt == newer
+                        && Date().timeIntervalSince(newer ?? Date()) >= 29
+                        && old.snapshot.limits[.claude]?.windows.map(\.remainingFraction).sorted() == [0.81, 0.95],
+                     "a newer saved reading brings back the session and updates the week, dated when Claude saved it, not when refreshed")
+        old.refreshUsage()
+        drain()
+        suite.expect(old.claudeStaleAfterRefresh == nil && old.store.limits[.claude]?.observedAt == newer,
+                     "refreshing a recent reading again neither reports it old nor changes its date")
+
+        // Another account's newer reading is not this account's.
+        let mixedHome = folder.appending(path: "mixed-home")
+        accounts([(21 * 3600, "org-a", 8, 15), (60, "org-b", 70, 60)], to: mixedHome, modified: now.addingTimeInterval(-60))
+        let mixed = Host()
+        mixed.home = mixedHome
+        mixed.claudeOrganization = "org-a"
+        mixed.refreshUsage()
+        drain()
+        suite.expect(used(mixed) == ["claude.sd": 15]
+                        && mixed.claudeStaleAfterRefresh == mixed.claudeAppSamples.first(where: { $0.organization == "org-a" })?.date
+                        && mixed.claudeStaleAfterRefresh != nil,
+                     "a newer reading of another account never replaces this account's, which is reported old")
+        let off = Host()
+        off.home = oldHome
+        off.enabled = []
+        off.refreshUsage()
+        drain()
+        suite.expect(off.claudeStaleAfterRefresh == nil, "with Claude off a refresh reports nothing about it")
+
         suite.expect(limited.priceDownloads == 0 && limited.paused == false,
                      "no refresh in any of these downloads a price list")
     }

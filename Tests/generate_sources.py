@@ -1505,6 +1505,7 @@ def main():
                     for prefix in ["    func refreshUsage(", "    private func refreshSources(",
                                    "    private func catchUpLogs(", "    private func pollOpenLogs(",
                                    "    private func read(", "    private func readClaudeApp(",
+                                   "    private func latestClaudeAppReading(",
                                    "    private func checkLimits("])
           + "}\n}\n")
 

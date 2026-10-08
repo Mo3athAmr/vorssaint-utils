@@ -341,6 +341,31 @@ enum AgentUsageRefreshTests {
         suite.expect(old.claudeStaleAfterRefresh == nil && old.store.limits[.claude]?.observedAt == newer,
                      "refreshing a recent reading again neither reports it old nor changes its date")
 
+        // The ordinary look the service takes every thirty seconds notices a
+        // newer reading by itself: no second refresh clears the finding.
+        let autoHome = folder.appending(path: "auto-home")
+        history([(21 * 3600, 8, 15)], to: autoHome, modified: now.addingTimeInterval(-21 * 3600))
+        let auto = Host()
+        auto.home = autoHome
+        auto.refreshUsage()
+        drain()
+        let foundOld = auto.claudeStaleAfterRefresh
+        suite.expect(foundOld != nil && AgentClaudeAppUsage.isStillOld(foundOld: foundOld, latest: auto.latestClaudeAppReading())
+                        && used(auto) == ["claude.sd": 15],
+                     "a refresh that finds the reading old leaves the finding standing for that reading")
+        history([(21 * 3600, 8, 15), (20, 5, 19)], to: autoHome, modified: now.addingTimeInterval(-5))
+        auto.readClaudeApp(now: Date())
+        auto.checkLimits()
+        auto.publish()
+        suite.expect(!AgentClaudeAppUsage.isStillOld(foundOld: auto.claudeStaleAfterRefresh, latest: auto.latestClaudeAppReading())
+                        && used(auto) == ["claude.fh": 5, "claude.sd": 19]
+                        && auto.snapshot.limits[.claude]?.observedAt == auto.latestClaudeAppReading()
+                        && auto.latestClaudeAppReading() != foundOld,
+                     "a newer reading clears the finding and shows the new limits dated by their own sample, with no second refresh")
+        suite.expect(!AgentClaudeAppUsage.isStillOld(foundOld: nil, latest: nil)
+                        && !AgentClaudeAppUsage.isStillOld(foundOld: nil, latest: Date()),
+                     "nothing found old means nothing is shown old")
+
         // Another account's newer reading is not this account's.
         let mixedHome = folder.appending(path: "mixed-home")
         accounts([(21 * 3600, "org-a", 8, 15), (60, "org-b", 70, 60)], to: mixedHome, modified: now.addingTimeInterval(-60))

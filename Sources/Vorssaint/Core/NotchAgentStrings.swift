@@ -273,7 +273,7 @@ extension NotchAgentStrings {
         resetsHelp: "A reset renews the Codex session and weekly limits at once. Codex checks your resets with its own sign-in, which Vorssaint never reads.",
         refreshTitle: "Refresh AI usage",
         refreshHelp: "Refresh usage, spending and limits. Live sessions update automatically.",
-        claudeRefreshStale: "Open Claude’s menu-bar icon to update")
+        claudeRefreshStale: "Claude has not reported newer usage data yet. Vorssaint shows the latest data Claude has reported.")
 
     static let uk = NotchAgentStrings(
         title: "ШІ-агенти",
@@ -371,7 +371,7 @@ extension NotchAgentStrings {
         resetsHelp: "Скидання одразу поновлює ліміти сеансу й тижня Codex. Codex перевіряє ваші скидання через власний вхід, який Vorssaint ніколи не читає.",
         refreshTitle: "Оновити використання ШІ",
         refreshHelp: "Оновити використання, витрати й ліміти. Активні сеанси оновлюються автоматично.",
-        claudeRefreshStale: "Відкрийте значок Claude в рядку меню, щоб оновити")
+        claudeRefreshStale: "Claude ще не повідомив новіших даних про використання. Vorssaint показує останні дані, які повідомив Claude.")
 
     static let ptBR = NotchAgentStrings(
         title: "Agentes de IA",
@@ -469,7 +469,7 @@ extension NotchAgentStrings {
         resetsHelp: "Uma redefinição renova de uma vez os limites da sessão e da semana do Codex. O Codex verifica suas redefinições com o próprio login, que o Vorssaint nunca lê.",
         refreshTitle: "Atualizar uso de IA",
         refreshHelp: "Atualiza uso, gastos e limites. Sessões ativas se atualizam sozinhas.",
-        claudeRefreshStale: "Abra o ícone do Claude na barra de menus para atualizar")
+        claudeRefreshStale: "O Claude ainda não informou dados de uso mais recentes. O Vorssaint mostra os dados mais recentes informados pelo Claude.")
 
     static let es = NotchAgentStrings(
         title: "Agentes de IA",
@@ -567,7 +567,7 @@ extension NotchAgentStrings {
         resetsHelp: "Un reinicio renueva a la vez los límites de la sesión y de la semana de Codex. Codex comprueba tus reinicios con su propio inicio de sesión, que Vorssaint nunca lee.",
         refreshTitle: "Actualizar uso de IA",
         refreshHelp: "Actualiza el uso, el gasto y los límites. Las sesiones activas se actualizan solas.",
-        claudeRefreshStale: "Abre el icono de Claude en la barra de menús para actualizar")
+        claudeRefreshStale: "Claude aún no ha informado de datos de uso más recientes. Vorssaint muestra los últimos datos que Claude ha informado.")
 
     static let sk = NotchAgentStrings(
         title: "AI agenti",
@@ -665,7 +665,7 @@ extension NotchAgentStrings {
         resetsHelp: "Obnovenie naraz obnoví limity relácie aj týždňa v Codexe. Codex kontroluje vaše obnovenia vlastným prihlásením, ktoré Vorssaint nikdy nečíta.",
         refreshTitle: "Obnoviť využitie AI",
         refreshHelp: "Obnoví využitie, výdavky a limity. Aktívne relácie sa aktualizujú automaticky.",
-        claudeRefreshStale: "Otvorte ikonu Claude v lište ponúk a obnovte údaje")
+        claudeRefreshStale: "Claude zatiaľ nenahlásil novšie údaje o využití. Vorssaint zobrazuje posledné údaje, ktoré Claude nahlásil.")
 
     static let de = NotchAgentStrings(
         title: "KI-Agenten",
@@ -763,7 +763,7 @@ extension NotchAgentStrings {
         resetsHelp: "Eine Zurücksetzung erneuert das Sitzungs- und das Wochenlimit von Codex auf einmal. Codex prüft deine Zurücksetzungen mit seiner eigenen Anmeldung, die Vorssaint nie liest.",
         refreshTitle: "KI-Nutzung aktualisieren",
         refreshHelp: "Aktualisiert Nutzung, Ausgaben und Limits. Laufende Sitzungen aktualisieren sich automatisch.",
-        claudeRefreshStale: "Menüleisten-Symbol von Claude öffnen zum Aktualisieren")
+        claudeRefreshStale: "Claude hat noch keine neueren Nutzungsdaten gemeldet. Vorssaint zeigt die letzten von Claude gemeldeten Daten.")
 
     static let fr = NotchAgentStrings(
         title: "Agents IA",
@@ -861,7 +861,7 @@ extension NotchAgentStrings {
         resetsHelp: "Une réinitialisation renouvelle d’un coup les limites de la session et de la semaine de Codex. Codex vérifie vos réinitialisations avec sa propre connexion, que Vorssaint ne lit jamais.",
         refreshTitle: "Actualiser l’utilisation de l’IA",
         refreshHelp: "Actualise l’utilisation, les dépenses et les limites. Les sessions en cours se mettent à jour automatiquement.",
-        claudeRefreshStale: "Ouvrez l’icône Claude de la barre des menus pour actualiser")
+        claudeRefreshStale: "Claude n’a pas encore signalé de données d’utilisation plus récentes. Vorssaint affiche les dernières données signalées par Claude.")
 
     static let it = NotchAgentStrings(
         title: "Agenti IA",
@@ -959,7 +959,7 @@ extension NotchAgentStrings {
         resetsHelp: "Un ripristino rinnova insieme i limiti della sessione e della settimana di Codex. Codex controlla i tuoi ripristini con il proprio accesso, che Vorssaint non legge mai.",
         refreshTitle: "Aggiorna l’uso dell’IA",
         refreshHelp: "Aggiorna uso, spesa e limiti. Le sessioni attive si aggiornano da sole.",
-        claudeRefreshStale: "Apri l’icona di Claude nella barra dei menu per aggiornare")
+        claudeRefreshStale: "Claude non ha ancora segnalato dati di utilizzo più recenti. Vorssaint mostra gli ultimi dati segnalati da Claude.")
 
     static let ru = NotchAgentStrings(
         title: "ИИ-агенты",
@@ -1057,7 +1057,7 @@ extension NotchAgentStrings {
         resetsHelp: "Сброс сразу обновляет лимиты сессии и недели Codex. Codex проверяет ваши сбросы через собственный вход, который Vorssaint никогда не читает.",
         refreshTitle: "Обновить использование ИИ",
         refreshHelp: "Обновляет использование, расходы и лимиты. Активные сеансы обновляются автоматически.",
-        claudeRefreshStale: "Откройте значок Claude в строке меню, чтобы обновить")
+        claudeRefreshStale: "Claude пока не сообщил более свежих данных об использовании. Vorssaint показывает последние данные, которые сообщил Claude.")
 
     static let tr = NotchAgentStrings(
         title: "YZ Ajanları",
@@ -1155,7 +1155,7 @@ extension NotchAgentStrings {
         resetsHelp: "Bir sıfırlama, Codex’in oturum ve haftalık sınırlarını tek seferde yeniler. Codex sıfırlamalarınızı kendi oturum açma bilgisiyle denetler. Vorssaint bunu hiçbir zaman okumaz.",
         refreshTitle: "Yapay zekâ kullanımını yenile",
         refreshHelp: "Kullanımı, harcamayı ve sınırları yeniler. Canlı oturumlar kendiliğinden güncellenir.",
-        claudeRefreshStale: "Güncellemek için menü çubuğundaki Claude simgesini açın")
+        claudeRefreshStale: "Claude henüz daha yeni kullanım verisi bildirmedi. Vorssaint, Claude’un bildirdiği en son verileri gösterir.")
 
     static let ja = NotchAgentStrings(
         title: "AIエージェント",
@@ -1253,7 +1253,7 @@ extension NotchAgentStrings {
         resetsHelp: "リセットを使うと、Codexのセッションと週の上限が同時に回復します。Codexは独自のサインイン情報でリセットを確認し、Vorssaintがそれを読み取ることはありません。",
         refreshTitle: "AI使用状況を更新",
         refreshHelp: "使用量、支出、上限を更新します。実行中のセッションは自動で更新されます。",
-        claudeRefreshStale: "Claudeのメニューバーアイコンを開いて更新")
+        claudeRefreshStale: "Claudeからまだ新しい使用状況は報告されていません。Vorssaintには、Claudeが最後に報告したデータを表示しています。")
 
     static let ko = NotchAgentStrings(
         title: "AI 에이전트",
@@ -1351,7 +1351,7 @@ extension NotchAgentStrings {
         resetsHelp: "초기화를 사용하면 Codex의 세션 및 주간 한도가 한 번에 갱신됩니다. Codex는 자체 로그인으로 초기화를 확인하며, Vorssaint는 이를 읽지 않습니다.",
         refreshTitle: "AI 사용량 새로고침",
         refreshHelp: "사용량, 지출, 한도를 새로고칩니다. 진행 중인 세션은 자동으로 업데이트됩니다.",
-        claudeRefreshStale: "Claude 메뉴 막대 아이콘을 열어 업데이트")
+        claudeRefreshStale: "Claude가 아직 더 새로운 사용량 데이터를 보고하지 않았습니다. Vorssaint는 Claude가 마지막으로 보고한 데이터를 표시합니다.")
 
     static let zhHans = NotchAgentStrings(
         title: "AI 智能体",
@@ -1449,7 +1449,7 @@ extension NotchAgentStrings {
         resetsHelp: "一次重置会同时恢复 Codex 的会话额度和每周额度。Codex 用自己的登录信息检查你的重置，Vorssaint 从不读取这些信息。",
         refreshTitle: "刷新 AI 用量",
         refreshHelp: "刷新用量、花费和额度。进行中的会话会自动更新。",
-        claudeRefreshStale: "打开菜单栏中的 Claude 图标以更新")
+        claudeRefreshStale: "Claude 尚未报告更新的用量数据。Vorssaint 显示的是 Claude 最近一次报告的数据。")
 
     static let zhTW = NotchAgentStrings(
         title: "AI 代理",
@@ -1547,7 +1547,7 @@ extension NotchAgentStrings {
         resetsHelp: "一次重設會同時恢復 Codex 的工作階段額度和每週額度。Codex 用自己的登入資訊檢查你的重設，Vorssaint 從不讀取這些資訊。",
         refreshTitle: "重新整理 AI 用量",
         refreshHelp: "重新整理用量、花費和額度。進行中的工作階段會自動更新。",
-        claudeRefreshStale: "開啟選單列中的 Claude 圖示以更新")
+        claudeRefreshStale: "Claude 尚未回報更新的用量資料。Vorssaint 顯示的是 Claude 最近一次回報的資料。")
 
     static let zhHK = NotchAgentStrings(
         title: "AI 代理",
@@ -1645,5 +1645,5 @@ extension NotchAgentStrings {
         resetsHelp: "一次重設會同時恢復 Codex 的工作階段額度和每週額度。Codex 用自己的登入資料檢查你的重設，Vorssaint 從不讀取這些資料。",
         refreshTitle: "重新整理 AI 用量",
         refreshHelp: "重新整理用量、花費和額度。進行中的工作階段會自動更新。",
-        claudeRefreshStale: "開啟選單列中的 Claude 圖示以更新")
+        claudeRefreshStale: "Claude 尚未回報更新的用量資料。Vorssaint 顯示的是 Claude 最近一次回報的資料。")
 }

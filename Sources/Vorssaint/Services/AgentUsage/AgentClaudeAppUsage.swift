@@ -25,6 +25,12 @@ enum AgentClaudeAppUsage {
         (try? Data(contentsOf: historyURL(home: home))).flatMap(samples)?.last?.date
     }
 
+    /// A refresh found the app's newest reading old, and it still is the
+    /// newest: a newer one makes the finding obsolete by itself.
+    static func isStillOld(foundOld: Date?, latest: Date?) -> Bool {
+        foundOld != nil && foundOld == latest
+    }
+
     struct Sample: Equatable {
         let date: Date
         let organization: String?

@@ -1495,6 +1495,19 @@ def main():
                         "    private func report(").replace("private func", "func", 1)
           + "}\n}\n")
 
+    service = "Sources/Vorssaint/Services/AgentUsage/AgentUsageService.swift"
+    write("AgentUsageRefresh.swift", "import Foundation\n"
+          + "extension AgentUsageRefreshTests {\nfinal class Host: Fixture {\n"
+          + "".join(declaration(service, prefix)
+                    .replace("private func", "func", 1)
+                    .replace("func read(", "@discardableResult func read(", 1)
+                    .replace("func pollOpenLogs(", "@discardableResult func pollOpenLogs(", 1)
+                    for prefix in ["    func refreshUsage(", "    private func refreshSources(",
+                                   "    private func catchUpLogs(", "    private func pollOpenLogs(",
+                                   "    private func read(", "    private func readClaudeApp(",
+                                   "    private func checkLimits("])
+          + "}\n}\n")
+
     write("ScrollingTitleMotion.swift", "import Foundation\n"
           + "extension ScrollingTitleMotionTests {\nfinal class Host: Fixture {\n"
           + declaration("Sources/Vorssaint/UI/Switcher/ScrollingTitle.swift",

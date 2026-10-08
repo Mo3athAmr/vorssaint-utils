@@ -475,6 +475,12 @@ struct NotchView: View {
             && !service.showingSections && !service.modules.isEmpty
     }
 
+    /// The AI page shows only its cards too, so refreshing sits in the header.
+    private var showsAgentsRefresh: Bool {
+        service.selected == .agents && !showsDetail
+            && !service.showingSections && !service.modules.isEmpty
+    }
+
     private var cameraHeaderActions: some View {
         ViewThatFits(in: .horizontal) {
             cameraHeaderActions(compactUpdate: false).fixedSize(horizontal: true, vertical: false)
@@ -487,14 +493,20 @@ struct NotchView: View {
             NotchUpdateControl(action: service.showUpdate, compact: compactUpdate)
             overflowMenu(items: overflowItems(
                 tools: service.selected == .tools && !showsDetail && !service.showingSections && launcher.activeUtility == nil,
-                clear: showsCapturesClear, clearNotifications: showsNotificationsClear))
+                clear: showsCapturesClear, clearNotifications: showsNotificationsClear,
+                refreshAgents: showsAgentsRefresh))
         }
     }
 
     /// The header's overflow entries, each with the glyph its own button
     /// wears when the pointer row shows them separately.
-    private func overflowItems(tools: Bool, clear: Bool, clearNotifications: Bool = false) -> [NotchMenuItem] {
+    private func overflowItems(tools: Bool, clear: Bool, clearNotifications: Bool = false,
+                               refreshAgents: Bool = false) -> [NotchMenuItem] {
         var items: [NotchMenuItem] = []
+        if refreshAgents {
+            items.append(NotchMenuItem(title: FeatureStrings.notchAgents(l10n.language).refreshTitle,
+                                       symbol: "arrow.clockwise", action: AgentUsageService.shared.refreshUsage))
+        }
         if tools {
             items.append(NotchMenuItem(title: text.customizeTools, checked: launcher.isEditing,
                                        symbol: "slider.horizontal.3") { launcher.isEditing.toggle() })
@@ -558,6 +570,7 @@ struct NotchView: View {
             }
             if showsCapturesClear { NotchClearCapturesButton() }
             if showsNotificationsClear { NotchClearNotificationsButton() }
+            if showsAgentsRefresh { NotchRefreshAgentsButton() }
             // Keeping the island open is one click, like the floating buttons;
             // a header button steps aside when the same action floats beside it.
             if !quickActions.contains(.pin) {

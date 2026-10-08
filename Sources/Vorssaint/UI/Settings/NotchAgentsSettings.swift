@@ -29,6 +29,9 @@ struct NotchAgentsSettingsControls: View {
     @State private var claudeApp: URL?
     /// Read from the file while the section is off and the service is idle.
     @State private var claudeAppFileCheck: Date?
+    /// When Claude Code's status line last saved its limits; nil if it never has.
+    @State private var statusLineReceived: Date?
+    @State private var statusLineCopied = false
 
     private var text: NotchAgentStrings { FeatureStrings.notchAgents(l10n.language) }
     private var locale: Locale { l10n.language.formattingLocale() }
@@ -141,6 +144,7 @@ struct NotchAgentsSettingsControls: View {
                 }
                 Text(text.claudeLimitsPrivacy).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                statusLineSetup
             }
         }
         .toggleStyle(.switch)
@@ -195,6 +199,34 @@ struct NotchAgentsSettingsControls: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
+    /// Claude Code's own way to share its limits: a status line script this
+    /// app writes when asked, whose setting the person adds themselves.
+    @ViewBuilder private var statusLineSetup: some View {
+        Text(text.statusLineTitle).font(.subheadline.weight(.medium)).padding(.top, 4)
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(statusLineReceived.map { text.statusLineReceived(relative($0, now: Date())) } ?? text.statusLineNone)
+                .font(.callout)
+            Spacer(minLength: 8)
+            Button(text.statusLineCopy) { copyStatusLineSetup() }
+        }
+        Text(statusLineCopied ? text.statusLineCopied : text.statusLineHint)
+            .font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Writes the script and puts the setting on the clipboard, off the main thread.
+    private func copyStatusLineSetup() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let setting = AgentClaudeStatusLimits.install()
+            DispatchQueue.main.async {
+                guard let setting else { return }
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(setting, forType: .string)
+                statusLineCopied = true
+            }
+        }
+    }
+
     private func relative(_ date: Date, now: Date) -> String {
         min(date, now).formatted(.relative(presentation: .named).locale(locale))
     }
@@ -205,7 +237,11 @@ struct NotchAgentsSettingsControls: View {
         claudeApp = NSWorkspace.shared.urlForApplication(withBundleIdentifier: AgentClaudeAppUsage.bundleIdentifier)
         DispatchQueue.global(qos: .utility).async {
             let checked = AgentClaudeAppUsage.lastCheck()
-            DispatchQueue.main.async { claudeAppFileCheck = checked }
+            let received = AgentClaudeStatusLimits.lastReceived()
+            DispatchQueue.main.async {
+                claudeAppFileCheck = checked
+                statusLineReceived = received
+            }
         }
     }
 

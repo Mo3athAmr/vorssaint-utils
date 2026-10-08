@@ -65,6 +65,9 @@ enum AgentUsageRefreshTests {
         var claudePlan: AgentPlan?
         var claudeOrganization: String?
         var claudeStaleAfterRefresh: Date?
+        var claudeStatusURL: URL?
+        var claudeStatusModified: Date?
+        var claudeStatusReading: AgentClaudeStatusLimits.Reading?
         var claudeAppModified: Date?
         var claudeAppSamples: [AgentClaudeAppUsage.Sample] = []
         var previousLimits: [AgentProvider: AgentLimits] = [:]
@@ -130,12 +133,160 @@ enum AgentUsageRefreshTests {
         try? FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: url.path)
     }
 
+    private static func status(_ session: Double?, _ week: Double?, ago: TimeInterval, to url: URL,
+                               resetsIn: TimeInterval = 3600, modified: Date? = nil) {
+        var limits: [String: Any] = [:]
+        let reset = Int(Date().timeIntervalSince1970 + resetsIn)
+        if let session { limits["five_hour"] = ["used_percentage": session, "resets_at": reset] }
+        if let week { limits["seven_day"] = ["used_percentage": week, "resets_at": reset + 86_400] }
+        let body: [String: Any] = ["version": 1, "t": Int(Date().timeIntervalSince1970 - ago), "rate_limits": limits]
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? JSONSerialization.data(withJSONObject: body).write(to: url)
+        if let modified { try? FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: url.path) }
+    }
+
     private static func warnings(_ host: Fixture) -> Int {
         host.events.filter { if case .limitWarning = $0 { return true } else { return false } }.count
     }
 
     private static func used(_ host: Fixture) -> [String: Double] {
         Dictionary(uniqueKeysWithValues: (host.store.limits[.claude]?.windows ?? []).map { ($0.id, $0.usedPercent) })
+    }
+
+    // MARK: Claude Code's status line
+
+    private static func statusLine(_ suite: TestSuite, folder: URL, drain: () -> Void) {
+        let now = Date()
+        // What Claude Code documents handing a status line, shaped as it shows.
+        let input = #"{"model":{"id":"m"},"session_id":"s","rate_limits":{"five_hour":{"used_percentage":23.5,"resets_at":\#(Int(now.timeIntervalSince1970) + 7200)},"seven_day":{"used_percentage":41.2,"resets_at":\#(Int(now.timeIntervalSince1970) + 90_000)}}}"#
+        let install = folder.appending(path: "status-install")
+        let setting = AgentClaudeStatusLimits.install(in: install)
+        let script = install.appending(path: AgentClaudeStatusLimits.scriptName)
+        let attributes = try? FileManager.default.attributesOfItem(atPath: script.path)
+        suite.expect(setting != nil && (attributes?[.posixPermissions] as? Int) == 0o700
+                        && FileManager.default.isExecutableFile(atPath: script.path),
+                     "setting up writes a script only its owner can run")
+        let wrapped = Data(("{" + (setting ?? "") + "}").utf8)
+        let object = (try? JSONSerialization.jsonObject(with: wrapped)) as? [String: Any]
+        let line = (object?["statusLine"] as? [String: Any])
+        suite.expect(line?["type"] as? String == "command"
+                        && (line?["command"] as? String)?.hasPrefix("'") == true
+                        && (line?["command"] as? String)?.contains(script.path) == true,
+                     "the setting to add is valid JSON naming the script, quoted for a path with spaces")
+
+        func run(_ stdin: String, arguments: [String] = []) -> (status: Int32, output: String) {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/sh")
+            process.arguments = [script.path] + arguments
+            let inPipe = Pipe(), outPipe = Pipe()
+            process.standardInput = inPipe
+            process.standardOutput = outPipe
+            process.standardError = Pipe()
+            do { try process.run() } catch { return (-1, "") }
+            inPipe.fileHandleForWriting.write(Data(stdin.utf8))
+            try? inPipe.fileHandleForWriting.close()
+            let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            return (process.terminationStatus, String(decoding: data, as: UTF8.self))
+        }
+        let data = install.appending(path: AgentClaudeStatusLimits.fileName)
+        let first = run(input)
+        let saved = (try? Data(contentsOf: data)).flatMap(AgentClaudeStatusLimits.reading)
+        suite.expect(first.status == 0 && first.output.isEmpty && saved?.windows.map(\.key) == ["five_hour", "seven_day"]
+                        && saved?.windows.map(\.used) == [23.5, 41.2]
+                        && abs((saved?.date ?? .distantPast).timeIntervalSinceNow) < 30,
+                     "the script saves only the plan limits and when it ran, and prints nothing of its own")
+        let raw = String(decoding: (try? Data(contentsOf: data)) ?? Data(), as: UTF8.self)
+        suite.expect(!raw.contains("session_id") && !raw.contains("model"),
+                     "nothing else of the session's input is kept")
+        try? FileManager.default.removeItem(at: data)
+        let without = run(#"{"model":{"id":"m"}}"#)
+        suite.expect(without.status == 0 && !FileManager.default.fileExists(atPath: data.path),
+                     "input without limits, as for an account that has none, saves nothing")
+        let chained = install.appending(path: "mine.sh")
+        try? Data("#!/bin/sh\ncat | /usr/bin/wc -c | /usr/bin/tr -d ' '\n".utf8).write(to: chained)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: chained.path)
+        let passed = run(input, arguments: [chained.path])
+        suite.expect(passed.output.trimmingCharacters(in: .whitespacesAndNewlines) == String(input.utf8.count)
+                        && FileManager.default.fileExists(atPath: data.path),
+                     "a status line named as the argument still gets the whole input, and its output is shown")
+
+        // The reader.
+        let sample = Data(#"{"version":1,"t":\#(Int(now.timeIntervalSince1970) - 60),"rate_limits":{"five_hour":{"used_percentage":5,"resets_at":\#(Int(now.timeIntervalSince1970) + 600)},"seven_day":{"used_percentage":150,"resets_at":\#(Int(now.timeIntervalSince1970) - 5)}}}"#.utf8)
+        let reading = AgentClaudeStatusLimits.reading(from: sample)
+        let limits = reading.flatMap { AgentClaudeStatusLimits.limits(from: $0, now: now) }
+        suite.expect(limits?.windows.map(\.id) == ["claude.fh"] && limits?.windows.first?.usedPercent == 5
+                        && limits?.windows.first?.kind == .session && limits?.windows.first?.minutes == 300
+                        && limits?.observedAt == reading?.date && limits?.source == .account
+                        && reading?.windows.last?.used == 100,
+                     "a window that renewed since is left out, a value is held to 0–100, and the reading is dated when saved")
+        suite.expect(AgentClaudeStatusLimits.reading(from: Data("{}".utf8)) == nil
+                        && AgentClaudeStatusLimits.reading(from: Data(#"{"version":2,"t":1,"rate_limits":{}}"#.utf8)) == nil
+                        && AgentClaudeStatusLimits.reading(from: Data("not json".utf8)) == nil
+                        && AgentClaudeStatusLimits.reading(from: Data(#"{"version":1,"t":-1,"rate_limits":{}}"#.utf8)) == nil
+                        && reading.flatMap({ AgentClaudeStatusLimits.limits(from: $0, now: now.addingTimeInterval(-3600)) }) == nil,
+                     "a file this reader does not know, or dated in the future, gives no limits")
+
+        // Against the Claude app's file: the newer reading is the one shown.
+        let home = folder.appending(path: "status-home")
+        let url = folder.appending(path: "status-file/\(AgentClaudeStatusLimits.fileName)")
+        history([(21 * 3600, 8, 15)], to: home, modified: now.addingTimeInterval(-21 * 3600))
+        let host = Host()
+        host.home = home
+        host.claudeStatusURL = url
+        host.readClaudeApp(now: now)
+        suite.expect(used(host) == ["claude.sd": 15] && host.store.limits[.claude]?.source == .claudeApp,
+                     "without the status line, the Claude app's old reading is what shows")
+        status(5, 19, ago: 30, to: url)
+        host.refreshUsage()
+        drain()
+        suite.expect(used(host) == ["claude.fh": 5, "claude.sd": 19] && host.store.limits[.claude]?.source == .account
+                        && host.claudeStaleAfterRefresh == nil
+                        && host.snapshot.limits[.claude]?.windows.map(\.remainingFraction).sorted() == [0.81, 0.95]
+                        && Date().timeIntervalSince(host.store.limits[.claude]?.observedAt ?? Date()) >= 29,
+                     "Claude Code's newer reading shows its session and week, dated when it was saved, and nothing is reported old")
+        history([(21 * 3600, 8, 15), (5, 40, 60)], to: home, modified: now.addingTimeInterval(-3))
+        host.refreshUsage()
+        drain()
+        suite.expect(used(host) == ["claude.fh": 40, "claude.sd": 60] && host.store.limits[.claude]?.source == .claudeApp,
+                     "a still newer reading from the Claude app takes over from the older status line one")
+        // An unreadable status file keeps what was read; removing it hands back to the Claude app.
+        status(7, 21, ago: 1, to: url)
+        try? FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: url.path)
+        host.refreshUsage()
+        drain()
+        suite.expect(used(host) == ["claude.fh": 40, "claude.sd": 60],
+                     "a status file that cannot be read now changes nothing")
+        try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
+        host.refreshUsage()
+        drain()
+        suite.expect(used(host) == ["claude.fh": 7, "claude.sd": 21] && host.store.limits[.claude]?.source == .account,
+                     "the next look reads it once it can be")
+        try? FileManager.default.removeItem(at: url)
+        host.refreshUsage()
+        drain()
+        suite.expect(used(host) == ["claude.fh": 40, "claude.sd": 60] && host.store.limits[.claude]?.source == .claudeApp,
+                     "without the status file the Claude app's reading shows again")
+        // Old on both sides: the refresh says so, with the newer of the two dates.
+        let aged = folder.appending(path: "status-aged")
+        let agedURL = folder.appending(path: "status-aged-file/\(AgentClaudeStatusLimits.fileName)")
+        history([(21 * 3600, 8, 15)], to: aged, modified: now.addingTimeInterval(-21 * 3600))
+        status(10, 30, ago: 3 * 3600, to: agedURL, resetsIn: 3600)
+        let old = Host()
+        old.home = aged
+        old.claudeStatusURL = agedURL
+        old.refreshUsage()
+        drain()
+        suite.expect(old.claudeStaleAfterRefresh == old.store.limits[.claude]?.observedAt && old.claudeStaleAfterRefresh != nil
+                        && used(old) == ["claude.fh": 10, "claude.sd": 30],
+                     "a status reading hours old is shown with its own date and reported old by a refresh")
+        let off = Host()
+        off.home = aged
+        off.claudeStatusURL = agedURL
+        off.enabled = []
+        off.readClaudeApp(now: now)
+        suite.expect(off.store.limits[.claude] == nil && off.claudeStatusReading == nil,
+                     "with Claude off the status file is not read")
     }
 
     static func run(_ suite: TestSuite) {
@@ -172,13 +323,16 @@ enum AgentUsageRefreshTests {
         }
 
         // Usage and spending: what the logs gained since the last look.
-        append([user(at: now.addingTimeInterval(-300)), assistant("a", output: 500, at: now.addingTimeInterval(-290))], to: log)
+        // Kept inside today, so a run just after midnight still totals them as today's.
+        let dayStart = Calendar.current.startOfDay(for: now)
+        func recent(_ ago: TimeInterval) -> Date { max(dayStart.addingTimeInterval(1), now.addingTimeInterval(-ago)) }
+        append([user(at: recent(300)), assistant("a", output: 500, at: recent(290))], to: log)
         let host = established()
         let cursor = host.cursors[log.path]
         let offset = cursor?.offset ?? 0
-        append([assistant("b", output: 700, at: now.addingTimeInterval(-60))], to: log)
+        append([assistant("b", output: 700, at: recent(60))], to: log)
         let other = root.url.appending(path: "second/other.jsonl")
-        append([assistant("c", output: 900, at: now.addingTimeInterval(-30))], to: other)
+        append([assistant("c", output: 900, at: recent(30))], to: other)
         host.refreshUsage()
         drain()
 
@@ -385,6 +539,8 @@ enum AgentUsageRefreshTests {
         drain()
         suite.expect(off.claudeStaleAfterRefresh == nil, "with Claude off a refresh reports nothing about it")
 
+
+        statusLine(suite, folder: folder, drain: drain)
         suite.expect(limited.priceDownloads == 0 && limited.paused == false,
                      "no refresh in any of these downloads a price list")
     }

@@ -83,7 +83,8 @@ struct NotchAgentsView: View {
                 NotchAgentLimitsCard(provider: provider, snapshot: snapshot, now: now,
                                      display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining, text: text,
                                      appStale: provider == .claude && AgentClaudeAppUsage.isStillOld(
-                                         foundOld: usage.claudeStaleAfterRefresh, latest: usage.claudeAppChecked))
+                                         foundOld: usage.claudeStaleAfterRefresh,
+                                         latest: snapshot.limits[.claude]?.observedAt))
             }
         case .spend:
             NotchAgentSpendCard(snapshot: snapshot, providers: providers, period: $period, text: text)
@@ -134,10 +135,11 @@ private struct NotchAgentLimitsCard: View {
     var appStale = false
     @Environment(\.locale) private var locale
 
-    /// A reading the Claude app saved a while ago: still the latest known,
-    /// shown quieter until the app checks again.
+    /// A reading Claude reported a while ago, through its app or its status
+    /// line: still the latest known, shown quieter until it reports again.
     private var stale: Bool {
-        guard let limits = snapshot.limits[provider], limits.source == .claudeApp else { return false }
+        guard let limits = snapshot.limits[provider],
+              limits.source == .claudeApp || (provider == .claude && limits.source == .account) else { return false }
         return now.timeIntervalSince(limits.observedAt) >= AgentClaudeAppUsage.freshness
     }
 

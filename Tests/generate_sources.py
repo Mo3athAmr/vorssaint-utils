@@ -1506,6 +1506,8 @@ def main():
                                    "    private func catchUpLogs(", "    private func pollOpenLogs(",
                                    "    private func read(", "    private func readClaudeApp(",
                                    "    private func latestClaudeAppReading(",
+                                   "    private func latestClaudeLimitsReading(",
+                                   "    private func readClaudeStatus(",
                                    "    private func checkLimits("])
           + "}\n}\n")
 

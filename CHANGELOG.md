@@ -7,9 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Dynamic Island
-- AI Agents can show Claude's current 5-hour and weekly plan limits from the data Claude Code's own status line receives, with the Claude app's history as a fallback. Setup is on request and the app never edits Claude Code's settings. The settings show whether the link is connected, when Claude last reported and when you last refreshed, and the app keeps its script up to date, so the setting is added only once. Settings → Dynamic Island → Content → AI Agents → Claude → Copy setup.
-- The AI Agents page has a Refresh button in the island's header that reads new usage, spending and limits right away, without touching live work. Refresh asks the Claude Code installed on this Mac for the plan's current usage over its own control interface, with no prompt and no model use, so the limits match Claude's own Usage screen; a status line report or the Claude app's history can never take the place of a newer answer, and if Claude Code cannot answer, the limits card keeps the last ones and says so.
-- Claude limits follow the Claude Code account that reported them. Activity, spending, projects, models and trends stay local to this Mac and are not filtered by account.
+- AI Agents shows Claude's current 5-hour and weekly plan limits. Refresh asks the Claude Code installed on this Mac for the plan's current usage over its own control interface, with no prompt and no model use, so the limits match Claude's own Usage screen. Claude Code signs in by itself and Vorssaint reads no credential. Where Claude Code cannot answer, the limits card keeps the last ones and says so.
+- Claude Code's status line can also pass its limits while you use it, and the Claude app's history stays a last fallback. An older or lower report never takes the place of a newer answer. Setting up the status line is optional and on request, and the app never edits Claude Code's settings. Settings → Dynamic Island → Content → AI Agents → Claude.
+- The AI Agents page has a Refresh button in the island's header that reads new usage, spending and limits right away, without touching live work. The settings show whether real-time limits are available, whether the status line is connected, when Claude last reported and when you last refreshed.
+- Claude limits follow the Claude Code account on this Mac. Activity, spending, projects, models and trends stay local to this Mac and are not filtered by account.
 
 ## [3.4.1-beta.2] - 2026-10-06
 

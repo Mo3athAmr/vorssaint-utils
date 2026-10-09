@@ -76,7 +76,6 @@ enum AgentUsageRefreshTests {
         var claudeOrganization: String?
         var claudeUnchangedAfterRefresh: Date?
         var lastManualRefreshAt: Date?
-        var claudeProviderCheckedAt: Date?
         var claudeRefreshFailure: AgentClaudeUsageFailure?
         var claudeDirectState: AgentClaudeDirectState = .untried
         let claudeUsage = FakeClaudeUsage()
@@ -447,7 +446,7 @@ enum AgentUsageRefreshTests {
                         && host.snapshot.limits[.claude]?.windows.map(\.remainingFraction).sorted() == [0.74, 0.77]
                         && host.claudeUsage.asks == 1 && !host.isRefreshing,
                      "a refresh shows what Claude Code answers, 26 and 23 used, over the status line's 25 and 22")
-        let checked = host.claudeProviderCheckedAt
+        let checked = host.store.limits[.claude]?.observedAt
         suite.expect(checked != nil && host.claudeDirectState == .available(checked ?? now) && host.claudeRefreshFailure == nil
                         && host.claudeUnchangedAfterRefresh == nil
                         && host.store.limits[.claude]?.observedAt == checked,
@@ -489,7 +488,7 @@ enum AgentUsageRefreshTests {
         kept.refreshUsage()
         drain()
         suite.expect(used(kept) == good && kept.store.limits[.claude]?.observedAt == answered
-                        && kept.claudeRefreshFailure == .timedOut && kept.claudeProviderCheckedAt == answered
+                        && kept.claudeRefreshFailure == .timedOut && kept.claudeDirectState == .available(answered ?? now)
                         && !kept.isRefreshing,
                      "a timeout keeps the last good limits and their time, says the refresh failed, and ends the wait")
         kept.claudeUsage.result = .failure(.rateLimited)
@@ -556,7 +555,6 @@ enum AgentUsageRefreshTests {
         append([user(at: began), assistant("d1", output: 50, stop: "tool_use", at: began.addingTimeInterval(5))], to: liveLog)
         let working = Host()
         working.home = folder.appending(path: "direct-live")
-        working.watchedRoots = []
         let liveRoot = AgentLogRoot(provider: .claude, url: folder.appending(path: "direct-live/projects"))
         working.watchedRoots = [liveRoot]
         working.read(liveLog.path, provider: .claude)

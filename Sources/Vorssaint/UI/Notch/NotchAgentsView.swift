@@ -130,9 +130,9 @@ private struct NotchAgentLimitsCard: View {
     let now: Date
     let display: NotchAgentLimitDisplay
     let text: NotchAgentStrings
-    /// A refresh the person asked for found the Claude app's reading still
-    /// old: it has reported nothing newer. True only while that same reading
-    /// is the latest, so a newer one clears it without another refresh.
+    /// A refresh the person asked for found no newer report of these limits
+    /// than the one shown. True only while that reading is the latest, so a
+    /// newer one clears it without another refresh.
     var appStale = false
     /// Asking Claude Code for the limits failed, so these are the last good ones.
     var refreshFailed = false

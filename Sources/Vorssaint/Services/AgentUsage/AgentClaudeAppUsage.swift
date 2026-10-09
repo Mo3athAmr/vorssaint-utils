@@ -5,12 +5,12 @@ import Foundation
 
 /// The Claude app checks the plan's limits itself and keeps a month of them on
 /// this Mac, a percentage for each window every few minutes, while its menu
-/// bar icon is on. That file is all Vorssaint reads for them: no sign-in is
-/// used and nothing is sent. The format is the app's own, so a version or an
-/// entry this reader does not know is left out rather than guessed.
+/// bar icon is on. Vorssaint reads that file as the last of its sources for
+/// Claude's limits: no sign-in is used and nothing is sent. The format is the
+/// app's own, so a version or an entry this reader does not know is left out
+/// rather than guessed.
 enum AgentClaudeAppUsage {
     static let bundleIdentifier = "com.anthropic.claudefordesktop"
-    static let downloadURL = URL(string: "https://claude.ai/download")!
     /// The app checks every five to fifteen minutes; a reading older than
     /// this has missed a check.
     static let freshness: TimeInterval = 30 * 60

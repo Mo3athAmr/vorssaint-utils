@@ -32,11 +32,11 @@ final class AgentUsageService: ObservableObject {
     /// When Claude Code's status line last reported the limits; nil when it
     /// has not, or Claude is off.
     @Published private(set) var claudeReported: Date?
-    /// When Claude Code last answered a request for the plan's usage.
-    @Published private(set) var claudeProviderCheckedAt: Date?
-    /// Why the last such request gave nothing, when it is worth saying: the
-    /// limits shown are then the last good ones.
+    /// Why the last request to Claude Code gave nothing, when it is worth
+    /// saying: the limits shown are then the last good ones.
     @Published private(set) var claudeRefreshFailure: AgentClaudeUsageFailure?
+    /// What asking Claude Code for the limits has come to, with the time of the
+    /// last answer it gave.
     @Published private(set) var claudeDirectState: AgentClaudeDirectState = .untried
     /// When Claude last reported its limits, if the last refresh found no
     /// newer report than that. Told apart from a newer one by comparing with
@@ -195,7 +195,6 @@ final class AgentUsageService: ObservableObject {
         isRefreshing = false
         lastManualRefreshAt = nil
         claudeReported = nil
-        claudeProviderCheckedAt = nil
         claudeRefreshFailure = nil
         claudeDirectState = .untried
         claudeUnchangedAfterRefresh = nil
@@ -333,7 +332,6 @@ final class AgentUsageService: ObservableObject {
             switch outcome {
             case .skipped: break
             case .succeeded(let date):
-                self.claudeProviderCheckedAt = date
                 self.claudeRefreshFailure = nil
                 self.claudeDirectState = .available(date)
             case .failed(let failure):
@@ -360,9 +358,9 @@ final class AgentUsageService: ObservableObject {
     /// Reads what the logs gained and the limits saved since each was last
     /// looked at, then hands the result over at once. The price list in use
     /// prices whatever is read, as always; none is downloaded. A source that
-    /// cannot be read keeps what it gave before. Claude reports its limits
-    /// only when Claude Code does, which nothing here can ask for, so the
-    /// latest report is read again and keeps its own date. Runs on `queue`.
+    /// cannot be read keeps what it gave before. The passive sources for
+    /// Claude's limits are read again and keep their own dates; asking Claude
+    /// Code itself follows. Runs on `queue`.
     private func refreshSources(now: Date) {
         guard readerSession >= 0 else { return }
         catchUpLogs()

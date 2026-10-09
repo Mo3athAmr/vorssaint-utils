@@ -312,6 +312,9 @@ if (( TEST )); then
         Sources/Vorssaint/Services/AgentUsage/AgentUsageArchive.swift
         Sources/Vorssaint/Services/AgentUsage/AgentClaudeAppUsage.swift
         Sources/Vorssaint/Services/AgentUsage/AgentClaudeStatusLimits.swift
+        Sources/Vorssaint/Services/AgentUsage/AgentClaudeIntegration.swift
+        Sources/Vorssaint/Services/AgentUsage/AgentClaudeLimits.swift
+        Sources/Vorssaint/Services/AgentUsage/AgentClaudeUsageClient.swift
         Sources/Vorssaint/Services/AgentUsage/AgentCodexServer.swift
         Sources/Vorssaint/Services/AgentUsage/AgentOpenCodeReader.swift
         Sources/Vorssaint/Services/Notch/NotchGestureSupport.swift
